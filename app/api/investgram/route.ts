@@ -1,10 +1,9 @@
-// app/api/investgram/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const MODEL = "gemini-2.5-flash"; // pode trocar por outro modelo
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY!;
+const MODEL = "gemini-2.5-flash";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,66 +24,54 @@ export async function POST(req: NextRequest) {
       observacao,
     } = body;
 
-    // -------------------------------------
-    //  VALIDAÇÕES
-    // -------------------------------------
     if (!tipoInvestimento)
-      return NextResponse.json(
-        { error: "Tipo de investimento é obrigatório." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Tipo é obrigatório." }, { status: 400 });
 
     if (tipoInvestimento !== "montar_carteira" && !ativo)
-      return NextResponse.json(
-        { error: "Ativo é obrigatório." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Ativo é obrigatório." }, { status: 400 });
 
     if (!dataAnalise)
-      return NextResponse.json(
-        { error: "Data da análise é obrigatória." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Data é obrigatória." }, { status: 400 });
 
     if (!perfilInvestidor)
-      return NextResponse.json(
-        { error: "Perfil do investidor é obrigatório." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Perfil é obrigatório." }, { status: 400 });
 
     if (!focoAnalise)
-      return NextResponse.json(
-        { error: "Foco da análise é obrigatório." },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Foco é obrigatório." }, { status: 400 });
 
-    // -------------------------------------
-    // CRIA O PROMPT BASEADO NO TIPO
-    // -------------------------------------
+    // -------------------------------
+    // PROMPT FINAL
+    // -------------------------------
     const prompt = `
-Você é o InvestGram, especialista em análises do mercado brasileiro.
+Você é o InvestGram, especializado no mercado brasileiro.
+
 Gere uma análise estruturada para:
 
-Tipo: ${tipoInvestimento}
-Ativo: ${ativo || "Carteira"}
-Perfil: ${perfilInvestidor}
-Foco: ${focoAnalise}
-Data: ${dataAnalise}
-Observação: ${observacao || "Nenhuma"}
+• Tipo: ${tipoInvestimento}
+• Ativo: ${ativo || "Carteira"}
+• Perfil: ${perfilInvestidor}
+• Foco: ${focoAnalise}
+• Data solicitada: ${dataAnalise}
+• Observação adicional: ${observacao || "Nenhuma"}
 
 REGRAS:
-- Sempre inclua uma TABELA RÁPIDA com métricas essenciais.
-- Nunca escreva "não encontrado", use "N/D".
-- Use dados mais recentes possíveis.
-- Organize a resposta com títulos, bullets e emojis discretos.
+- Sempre inclua uma *Tabela Rápida* com dados essenciais.
+- Nunca use "não encontrado" — utilize "N/D".
+- Traga números reais quando possível.
+- Organize com títulos, listas e ícones discretos.
+- Se o ativo for FII, inclua vacância, dividend yield, setor e qualidade dos imóveis.
+- Se for ação, inclua P/L, P/VP, ROE, margem, dívida líquida/EBITDA.
+- Se for ETF, descreva composição, taxa, benchmark e risco.
+- Se for renda fixa, taxa, tipo, emissor e risco.
+- Se for carteira, gere a alocação balanceada com percentuais recomendados.
 `;
 
-    // -------------------------------------
-    // CHAMADA À API DO GEMINI VIA HTTP (STREAM)
-    // -------------------------------------
+    // -------------------------------
+    // CHAMANDO A API DO GEMINI (STREAM)
+    // -------------------------------
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
 
-    const response = await fetch(url, {
+    const apiResponse = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -102,32 +89,30 @@ REGRAS:
       }),
     });
 
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      console.error("Erro API Gemini:", errData);
+    if (!apiResponse.ok) {
+      const err = await apiResponse.json().catch(() => null);
+      console.error("Erro Gemini:", err);
+
       return NextResponse.json(
-        { error: "Falha ao chamar o Gemini", details: errData },
+        { error: "Erro ao chamar o Gemini", details: err },
         { status: 500 }
       );
     }
 
-    // -------------------------------------
-    //  STREAM DE RESPOSTA (SEM ESTOURAR 25s)
-    // -------------------------------------
-    const reader = response.body!.getReader();
+    // -------------------------------
+    // STREAM PARA O CLIENTE
+    // -------------------------------
+    const reader = apiResponse.body!.getReader();
+    const decoder = new TextDecoder();
 
     const stream = new ReadableStream({
       async start(controller) {
-        const decoder = new TextDecoder();
-
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
 
-          const chunkText = decoder.decode(value);
-          controller.enqueue(chunkText);
+          controller.enqueue(decoder.decode(value));
         }
-
         controller.close();
       },
     });
@@ -139,7 +124,7 @@ REGRAS:
   } catch (err) {
     console.error("Erro InvestGram:", err);
     return NextResponse.json(
-      { error: "Erro interno no InvestGram" },
+      { error: "Erro interno do InvestGram." },
       { status: 500 }
     );
   }
