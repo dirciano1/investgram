@@ -1,17 +1,21 @@
 // app/api/investgram/route.ts
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "edge";
 
-export async function POST(req: Request) {
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = "gemini-2.5-flash"; // pode trocar por outro modelo
+
+export async function POST(req: NextRequest) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      return new Response("GEMINI_API_KEY não configurada.", { status: 500 });
+    if (!GEMINI_API_KEY) {
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY não configurada." },
+        { status: 500 }
+      );
     }
 
     const body = await req.json();
-
     const {
       tipoInvestimento,
       ativo,
@@ -21,130 +25,122 @@ export async function POST(req: Request) {
       observacao,
     } = body;
 
-    const tipo = String(tipoInvestimento || "").toLowerCase();
+    // -------------------------------------
+    //  VALIDAÇÕES
+    // -------------------------------------
+    if (!tipoInvestimento)
+      return NextResponse.json(
+        { error: "Tipo de investimento é obrigatório." },
+        { status: 400 }
+      );
 
-    const isCarteira =
-      tipo.includes("carteira") ||
-      tipo.includes("balanceada") ||
-      tipo.includes("montar");
+    if (tipoInvestimento !== "montar_carteira" && !ativo)
+      return NextResponse.json(
+        { error: "Ativo é obrigatório." },
+        { status: 400 }
+      );
 
-    // ---- VALIDAÇÕES BÁSICAS ----
-    if (!tipoInvestimento) {
-      return new Response("Tipo de investimento é obrigatório.", { status: 400 });
-    }
-    if (!isCarteira && !ativo) {
-      return new Response("Informe o ativo.", { status: 400 });
-    }
-    if (!dataAnalise) {
-      return new Response("Informe a data da análise.", { status: 400 });
-    }
-    if (!perfilInvestidor) {
-      return new Response("Perfil obrigatório.", { status: 400 });
-    }
-    if (!focoAnalise) {
-      return new Response("Foco obrigatório.", { status: 400 });
-    }
+    if (!dataAnalise)
+      return NextResponse.json(
+        { error: "Data da análise é obrigatória." },
+        { status: 400 }
+      );
 
-    // ---- Gemini ----
-    const genAI = new GoogleGenerativeAI(apiKey);
+    if (!perfilInvestidor)
+      return NextResponse.json(
+        { error: "Perfil do investidor é obrigatório." },
+        { status: 400 }
+      );
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.45,
-        topK: 32,
-        topP: 0.9,
-        maxOutputTokens: 900,
-      },
+    if (!focoAnalise)
+      return NextResponse.json(
+        { error: "Foco da análise é obrigatório." },
+        { status: 400 }
+      );
+
+    // -------------------------------------
+    // CRIA O PROMPT BASEADO NO TIPO
+    // -------------------------------------
+    const prompt = `
+Você é o InvestGram, especialista em análises do mercado brasileiro.
+Gere uma análise estruturada para:
+
+Tipo: ${tipoInvestimento}
+Ativo: ${ativo || "Carteira"}
+Perfil: ${perfilInvestidor}
+Foco: ${focoAnalise}
+Data: ${dataAnalise}
+Observação: ${observacao || "Nenhuma"}
+
+REGRAS:
+- Sempre inclua uma TABELA RÁPIDA com métricas essenciais.
+- Nunca escreva "não encontrado", use "N/D".
+- Use dados mais recentes possíveis.
+- Organize a resposta com títulos, bullets e emojis discretos.
+`;
+
+    // -------------------------------------
+    // CHAMADA À API DO GEMINI VIA HTTP (STREAM)
+    // -------------------------------------
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_API_KEY}`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }],
+          },
+        ],
+        tools: [
+          {
+            google_search: {},
+          },
+        ],
+      }),
     });
 
-    // --------------------------------------------
-    // AQUI MANTEMOS *EXATAMENTE O SEU PROMPT*
-    // (vou deixar apenas um exemplo simplificado abaixo)
-    // --------------------------------------------
-
-    let prompt = "";
-
-    if (isCarteira) {
-      prompt = `
-Monte uma carteira balanceada para o perfil ${perfilInvestidor}, foco ${focoAnalise}.
-Data: ${dataAnalise}.
-Observação: ${observacao || "nenhuma"}.
-
-Regras:
-- Nunca escreva "não encontrado" ou "data futura".
-- Use "N/D" caso algum dado não exista.
-- Responda em formato organizado e com bullets.
-      `;
-    } else if (tipo.includes("fii")) {
-      prompt = `
-Gere uma análise completa do FII ${ativo}.
-Perfil: ${perfilInvestidor}.
-Foco: ${focoAnalise}.
-Data: ${dataAnalise}.
-Obs: ${observacao || "nenhuma"}.
-
-Monte uma TABELA RÁPIDA com:
-- Preço atual
-- DY 12m
-- Dividendos 12m
-- P/VP
-- Vacância
-- Tipo do FII
-- Índice de correção
-
-Se não souber algum valor, use "N/D".
-      `;
-    } else if (tipo.includes("acoes")) {
-      prompt = `
-Analise a ação ${ativo}.
-Perfil: ${perfilInvestidor}.
-Foco: ${focoAnalise}.
-Data: ${dataAnalise}.
-Obs: ${observacao || "nenhuma"}.
-
-Monte uma TABELA RÁPIDA:
-- Preço atual
-- Variação no dia
-- DY 12m
-- Dividendos 12m
-- P/L
-- P/VP
-- ROE
-- Margem líquida
-- Dívida líquida / EBITDA
-- Setor
-- Valor de mercado
-
-Se não souber algum valor, usar "N/D".
-Nunca escreva "não encontrado" ou "dados futuros".
-      `;
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      console.error("Erro API Gemini:", errData);
+      return NextResponse.json(
+        { error: "Falha ao chamar o Gemini", details: errData },
+        { status: 500 }
+      );
     }
 
-    // ==================================================
-    // STREAM: solução final SEM TIMEOUT
-    // ==================================================
-
-    const streamResp = await model.generateContentStream(prompt);
+    // -------------------------------------
+    //  STREAM DE RESPOSTA (SEM ESTOURAR 25s)
+    // -------------------------------------
+    const reader = response.body!.getReader();
 
     const stream = new ReadableStream({
       async start(controller) {
-        for await (const chunk of streamResp) {
-          controller.enqueue(chunk.text());
+        const decoder = new TextDecoder();
+
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+
+          const chunkText = decoder.decode(value);
+          controller.enqueue(chunkText);
         }
+
         controller.close();
       },
     });
 
     return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-      },
+      headers: { "Content-Type": "text/plain; charset=utf-8" },
       status: 200,
     });
-
   } catch (err) {
-    console.error("ERRO NO INVESTGRAM:", err);
-    return new Response("Erro interno no InvestGram", { status: 500 });
+    console.error("Erro InvestGram:", err);
+    return NextResponse.json(
+      { error: "Erro interno no InvestGram" },
+      { status: 500 }
+    );
   }
 }
