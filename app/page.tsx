@@ -6,6 +6,9 @@ type TipoInvestimento = "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteir
 type PerfilInvestidor = "conservador" | "moderado" | "agressivo";
 type FocoAnalise = "dividendos" | "valorizacao" | "crescimento" | "renda_passiva";
 
+/* ==========================
+   ESTILOS GLOBAIS
+========================== */
 const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "7px 12px",
@@ -33,6 +36,45 @@ const labelStyle: React.CSSProperties = {
   fontSize: "0.85rem",
   color: "#e5e7eb",
 };
+
+/* ==========================
+   FORMATADOR DA ANÁLISE
+========================== */
+function formatarAnalise(texto: string) {
+  if (!texto) return "";
+
+  return texto
+    // Remove **negrito**
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+
+    // Títulos com emojis → verde
+    .replace(/^([📌📊📈⚠️🎯🧠].+)$/gm,
+      `<span style="color:#22c55e;font-weight:700;">$1</span>`)
+
+    // Listas de "-" → marcadores azuis
+    .replace(/^- (.*)$/gm,
+      `<div style="color:#38bdf8;margin-left:10px;">• $1</div>`)
+
+    // Separadores
+    .replace(/---+/g,
+      `<hr style="border-color:#1f2937;opacity:0.5;margin:10px 0;">`)
+
+    // Emojis marcando título
+    .replace(/(📌|📊|📈|⚠️|🎯|🧠)/g,
+      `<span style="color:#22c55e;font-weight:700;">$1</span>`)
+
+    // Quebra de linha
+    .replace(/\n/g, "<br>");
+}
+
+/* ==========================
+   MODAL DE PERFIL
+========================== */
+interface PerfilModalProps {
+  open: boolean;
+  onClose: () => void;
+  onResultado: (perfil: PerfilInvestidor) => void;
+}
 
 const modalBackdropStyle: React.CSSProperties = {
   position: "fixed",
@@ -80,12 +122,6 @@ const buttonSecondaryStyle: React.CSSProperties = {
   fontSize: "0.85rem",
 };
 
-interface PerfilModalProps {
-  open: boolean;
-  onClose: () => void;
-  onResultado: (perfil: PerfilInvestidor) => void;
-}
-
 function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
   const [p1, setP1] = useState("");
   const [p2, setP2] = useState("");
@@ -97,17 +133,13 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
 
   function calcularPerfil() {
     const respostas = [p1, p2, p3, p4, p5];
-    if (respostas.some((r) => r === "")) {
-      alert("⚠️ Responda todas as perguntas para descobrir seu perfil.");
-      return;
-    }
+    if (respostas.some((r) => r === "")) return alert("⚠️ Responda tudo.");
 
-    const soma = respostas.reduce((acc, r) => acc + parseInt(r, 10), 0);
-
-    let perfil: PerfilInvestidor;
-    if (soma <= 7) perfil = "conservador";
-    else if (soma <= 11) perfil = "moderado";
-    else perfil = "agressivo";
+    const soma = respostas.reduce((acc, r) => acc + Number(r), 0);
+    const perfil =
+      soma <= 7 ? "conservador" :
+      soma <= 11 ? "moderado" :
+      "agressivo";
 
     onResultado(perfil);
     onClose();
@@ -116,135 +148,64 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
   return (
     <div style={modalBackdropStyle}>
       <div style={modalContentStyle}>
-        <h3
-          style={{
-            color: "#22c55e",
-            marginBottom: "10px",
-            fontSize: "1.05rem",
-            display: "flex",
-            alignItems: "center",
-            gap: "6px",
-          }}
-        >
-          🧠 Descobrir perfil do investidor
-        </h3>
-        <p
-          style={{
-            color: "#9ca3af",
-            fontSize: "0.85rem",
-            marginBottom: "12px",
-            lineHeight: 1.4,
-          }}
-        >
-          Responda rápido, igual nas corretoras. Ao final, o InvestGram define
-          automaticamente seu perfil.
+        <h3 style={{ color: "#22c55e", marginBottom: 10 }}>🧠 Descobrir perfil do investidor</h3>
+        <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12 }}>
+          Responda rápido. O InvestGram calculará automaticamente seu perfil.
         </p>
 
-        {/* Pergunta 1 */}
-        <div style={{ marginBottom: "10px" }}>
-          <p style={labelStyle}>1. Qual é o principal objetivo dos seus investimentos?</p>
-          <select
-            value={p1}
-            onChange={(e) => setP1(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">Selecione...</option>
-            <option value="1">Preservar patrimônio</option>
-            <option value="2">Crescer com segurança</option>
-            <option value="3">Maximizar retorno assumindo mais risco</option>
-          </select>
-        </div>
+        {/* Perguntas */}
+        {[{
+          label: "1. Qual é o principal objetivo dos seus investimentos?",
+          state: p1, set: setP1,
+          opts: ["Preservar patrimônio", "Crescer com segurança", "Maximizar retorno assumindo risco"]
+        },
+        {
+          label: "2. Por quanto tempo deixará o dinheiro investido?",
+          state: p2, set: setP2,
+          opts: ["Menos de 1 ano", "1 a 5 anos", "Mais de 5 anos"]
+        },
+        {
+          label: "3. Se cair 15% no mês, o que faz?",
+          state: p3, set: setP3,
+          opts: ["Saco tudo", "Espero recuperar", "Compro mais"]
+        },
+        {
+          label: "4. Seu conhecimento em investimentos:",
+          state: p4, set: setP4,
+          opts: ["Baixo", "Médio", "Alto"]
+        },
+        {
+          label: "5. Segurança financeira hoje:",
+          state: p5, set: setP5,
+          opts: [
+            "Dependo do dinheiro, não arrisco",
+            "Tenho estabilidade, arrisco moderado",
+            "Alta estabilidade, aceito riscos maiores"
+          ]
+        }].map((q, i) => (
+          <div key={i} style={{ marginBottom: 10 }}>
+            <p style={labelStyle}>{q.label}</p>
+            <select value={q.state} onChange={(e) => q.set(e.target.value)} style={selectStyle}>
+              <option value="">Selecione...</option>
+              <option value="1">{q.opts[0]}</option>
+              <option value="2">{q.opts[1]}</option>
+              <option value="3">{q.opts[2]}</option>
+            </select>
+          </div>
+        ))}
 
-        {/* Pergunta 2 */}
-        <div style={{ marginBottom: "10px" }}>
-          <p style={labelStyle}>
-            2. Por quanto tempo pretende deixar o dinheiro investido?
-          </p>
-          <select
-            value={p2}
-            onChange={(e) => setP2(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">Selecione...</option>
-            <option value="1">Menos de 1 ano</option>
-            <option value="2">Entre 1 e 5 anos</option>
-            <option value="3">Mais de 5 anos</option>
-          </select>
-        </div>
-
-        {/* Pergunta 3 */}
-        <div style={{ marginBottom: "10px" }}>
-          <p style={labelStyle}>
-            3. Se seu investimento cair 15% em um mês, o que você faz?
-          </p>
-          <select
-            value={p3}
-            onChange={(e) => setP3(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">Selecione...</option>
-            <option value="1">Saco tudo imediatamente</option>
-            <option value="2">Espero recuperar</option>
-            <option value="3">Aproveito para comprar mais</option>
-          </select>
-        </div>
-
-        {/* Pergunta 4 */}
-        <div style={{ marginBottom: "10px" }}>
-          <p style={labelStyle}>
-            4. Como você avalia seu conhecimento em investimentos?
-          </p>
-          <select
-            value={p4}
-            onChange={(e) => setP4(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">Selecione...</option>
-            <option value="1">Baixo</option>
-            <option value="2">Médio</option>
-            <option value="3">Alto</option>
-          </select>
-        </div>
-
-        {/* Pergunta 5 */}
-        <div style={{ marginBottom: "10px" }}>
-          <p style={labelStyle}>5. Como está sua segurança financeira hoje?</p>
-          <select
-            value={p5}
-            onChange={(e) => setP5(e.target.value)}
-            style={selectStyle}
-          >
-            <option value="">Selecione...</option>
-            <option value="1">Dependo desse dinheiro, não posso arriscar</option>
-            <option value="2">
-              Tenho estabilidade, posso arriscar moderadamente
-            </option>
-            <option value="3">
-              Tenho alta estabilidade, posso assumir riscos elevados
-            </option>
-          </select>
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            gap: "10px",
-            justifyContent: "flex-end",
-            marginTop: "10px",
-          }}
-        >
-          <button style={buttonSecondaryStyle} onClick={onClose}>
-            Cancelar
-          </button>
-          <button style={buttonPrimaryStyle} onClick={calcularPerfil}>
-            Confirmar perfil
-          </button>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <button style={buttonSecondaryStyle} onClick={onClose}>Cancelar</button>
+          <button style={buttonPrimaryStyle} onClick={calcularPerfil}>Confirmar</button>
         </div>
       </div>
     </div>
   );
 }
 
+/* ==========================
+   PÁGINA PRINCIPAL
+========================== */
 export default function InvestGramPage() {
   const [tipoInvestimento, setTipoInvestimento] =
     useState<TipoInvestimento>("acoes");
@@ -259,125 +220,73 @@ export default function InvestGramPage() {
   const [carregandoFrase, setCarregandoFrase] = useState("Analisando...");
   const [resultado, setResultado] = useState("");
   const [showPerfilModal, setShowPerfilModal] = useState(false);
-  const [panelFlip, setPanelFlip] = useState(false); // false = formulário, true = resultado
+  const [panelFlip, setPanelFlip] = useState(false);
 
+  /* frases animadas */
   useEffect(() => {
     if (!carregando) return;
-
     const frases = [
       "Buscando dados do ativo…",
       "Cruzando indicadores fundamentais…",
       "Analisando histórico de preço e risco…",
       "Calculando relação risco x retorno…",
-      "Gerando conclusão personalizada para seu perfil…",
+      "Gerando conclusão personalizada…",
     ];
-
     let i = 0;
-    setCarregandoFrase(frases[0]);
-
-    const intervalo = setInterval(() => {
-      i = (i + 1) % frases.length;
-      setCarregandoFrase(frases[i]);
-    }, 4000);
-
-    return () => clearInterval(intervalo);
+    const timer = setInterval(() => setCarregandoFrase(frases[i++ % frases.length]), 4000);
+    return () => clearInterval(timer);
   }, [carregando]);
 
+  /* SUBMIT */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    // validações básicas
-    if (!dataAnalise.trim()) {
-      alert("⚠️ Informe a data da análise.");
-      return;
-    }
-    if (tipoInvestimento !== "montar_carteira" && !ativo.trim()) {
-      alert("⚠️ Informe o código ou nome do ativo.");
-      return;
-    }
-    if (!perfilInvestidor) {
-      alert("⚠️ Selecione o perfil do investidor (ou descubra no questionário).");
-      return;
-    }
-    if (!focoAnalise) {
-      alert("⚠️ Selecione o foco da análise (obrigatório).");
-      return;
-    }
+    if (!dataAnalise) return alert("⚠️ Informe a data.");
+    if (tipoInvestimento !== "montar_carteira" && !ativo.trim())
+      return alert("⚠️ Informe o ativo.");
+    if (!perfilInvestidor) return alert("⚠️ Escolha o perfil.");
+    if (!focoAnalise) return alert("⚠️ Foco obrigatório.");
 
     setCarregando(true);
     setResultado("");
 
     try {
-      const body = {
-        // nomes usados no front atual
-        tipoInvestimento,
-        ativo,
-        dataAnalise,
-        perfilInvestidor,
-        focoAnalise,
-        observacao,
-
-        // chaves extras para compatibilidade com o route antigo, se ainda existir
-        tipo: tipoInvestimento,
-        perfil: perfilInvestidor,
-        foco: focoAnalise,
-        data: dataAnalise,
-      };
-
       const res = await fetch("/api/investgram", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({
+          tipoInvestimento,
+          ativo,
+          dataAnalise,
+          perfilInvestidor,
+          focoAnalise,
+          observacao,
+        }),
       });
 
-      if (!res.ok) {
-        throw new Error("Erro na API do InvestGram");
+      if (!res.ok) throw new Error("Erro na API");
+      if (!res.body) throw new Error("Resposta vazia");
+
+      const reader = res.body.getReader();
+      const dec = new TextDecoder();
+      let texto = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        texto += dec.decode(value, { stream: true });
       }
 
-      // NÃO use res.json() — streaming quebra se usar isso
-if (!res.body) {
-  throw new Error("Resposta vazia da API");
-}
-
-const reader = res.body.getReader();
-const decoder = new TextDecoder();
-let text = "";
-
-while (true) {
-  const { value, done } = await reader.read();
-  if (done) break;
-
-  text += decoder.decode(value, { stream: true });
-}
-
-setResultado(text);
-setPanelFlip(true);
-
+      setResultado(texto);
+      setPanelFlip(true);
     } finally {
       setCarregando(false);
     }
   }
 
-  function descricaoPerfil(p: PerfilInvestidor | "") {
-    if (p === "conservador")
-      return "Prioriza segurança e preservação de capital, aceitando menor risco e menor volatilidade.";
-    if (p === "moderado")
-      return "Busca equilíbrio entre segurança e retorno, aceitando oscilações moderadas no curto prazo.";
-    if (p === "agressivo")
-      return "Focado em retorno máximo, aceitando alta volatilidade e riscos maiores em busca de ganhos.";
-    return "";
-  }
-
-  function descricaoFoco(f: FocoAnalise | "") {
-    if (f === "dividendos") return "Ativos com foco em distribuição consistente de dividendos.";
-    if (f === "valorizacao") return "Ativos com potencial de valorização da cota/preço.";
-    if (f === "crescimento")
-      return "Empresas/ativos com crescimento forte de receita, lucro e mercado.";
-    if (f === "renda_passiva")
-      return "Estratégia voltada em gerar fluxo de caixa recorrente com menor necessidade de giro.";
-    return "";
-  }
-
+  /* ==========================
+     RENDER FINAL
+  ========================== */
   return (
     <main
       style={{
@@ -391,147 +300,83 @@ setPanelFlip(true);
         alignItems: "center",
       }}
     >
-      {/* H1 para SEO escondido */}
-      <h1 style={{ position: "absolute", left: "-9999px", top: 0 }}>
-        InvestGram - Analisador de Investimentos com Inteligência Artificial
+      <h1 style={{ position: "absolute", left: -9999 }}>
+        InvestGram - Analisador de Investimentos
       </h1>
 
-      {/* Título visual */}
-      <h2
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: "8px",
-          justifyContent: "center",
-          fontSize: "1.6rem",
-          marginTop: "22px",
-          marginBottom: "16px",
-        }}
-      >
-        <img
-          src="/investgram-icon.png"
-          alt="Logo InvestGram"
-          style={{ width: "46px", height: "46px", objectFit: "contain" }}
-        />
+      <h2 style={{ display: "flex", gap: 8, marginTop: 22 }}>
+        <img src="/investgram-icon.png" alt="Logo" style={{ width: 46 }} />
         <span style={{ color: "#22c55e" }}>
-          InvestGram -{" "}
-          <span style={{ color: "#fff" }}>Analisador de Ativos</span>
+          InvestGram - <span style={{ color: "#fff" }}>Analisador de Ativos</span>
         </span>
       </h2>
 
       <div
         style={{
           width: "100%",
-          maxWidth: "720px",
+          maxWidth: 720,
           background: "rgba(17,24,39,0.85)",
           border: "1px solid rgba(34,197,94,0.25)",
-          borderRadius: "16px",
+          borderRadius: 16,
+          padding: 16,
           boxShadow: "0 0 25px rgba(34,197,94,0.08)",
-          padding: "14px 12px 16px",
-          backdropFilter: "blur(8px)",
         }}
       >
-        {/* Cabeçalho simples (sem selo de IA focada) */}
-        <div style={{ marginBottom: "14px" }}>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              gap: "10px",
-              alignItems: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <div style={{ fontSize: "0.98rem" }}>
-              👋 <b>Bem-vindo ao InvestGram</b>
-              <div style={{ color: "#9ca3af", fontSize: "0.82rem" }}>
-                Preencha os dados do ativo ou carteira e receba uma análise
-                inteligente.
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Painel com FLIP: formulário ou resultado */}
         {!panelFlip ? (
+          /* ======================
+             FORMULÁRIO
+          ====================== */
           <form onSubmit={handleSubmit}>
-            {/* Linha: tipo + data */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                marginBottom: "8px",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: "180px" }}>
+
+            {/* LINHA 1 */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ flex: 1 }}>
                 <label style={labelStyle}>📂 Tipo de investimento:</label>
                 <select
-                  value={tipoInvestimento}
-                  onChange={(e) =>
-                    setTipoInvestimento(e.target.value as TipoInvestimento)
-                  }
                   style={selectStyle}
+                  value={tipoInvestimento}
+                  onChange={(e) => setTipoInvestimento(e.target.value as TipoInvestimento)}
                 >
                   <option value="acoes">📈 Ações</option>
-                  <option value="fii">🏢 Fundos Imobiliários (FII)</option>
+                  <option value="fii">🏢 Fundos Imobiliários</option>
                   <option value="etf">📊 ETFs</option>
                   <option value="renda_fixa">💵 Renda Fixa</option>
-                  <option value="montar_carteira">
-                    📊 Montar carteira balanceada
-                  </option>
+                  <option value="montar_carteira">📊 Montar Carteira</option>
                 </select>
               </div>
 
-              <div style={{ width: "150px" }}>
-                <label style={labelStyle}>📅 Data da análise:</label>
+              <div style={{ width: 150 }}>
+                <label style={labelStyle}>📅 Data:</label>
                 <input
-                  type="text"
+                  style={{ ...inputStyle, textAlign: "center" }}
                   placeholder="10/12/2025"
                   value={dataAnalise}
                   onChange={(e) => setDataAnalise(e.target.value)}
-                  style={{
-                    ...inputStyle,
-                    textAlign: "center",
-                    width: "100%",
-                  }}
                 />
               </div>
             </div>
 
-            {/* Ativo (quando não for carteira) */}
+            {/* ATIVO */}
             {tipoInvestimento !== "montar_carteira" && (
-              <div style={{ marginBottom: "8px" }}>
-                <label style={labelStyle}>💼 Ativo (código ou nome):</label>
+              <div>
+                <label style={labelStyle}>💼 Ativo:</label>
                 <input
-                  type="text"
-                  placeholder="Ex: PETR4, HGLG11, IVVB11, Tesouro IPCA+"
+                  style={inputStyle}
+                  placeholder="PETR4, HGLG11, IVVB11..."
                   value={ativo}
                   onChange={(e) => setAtivo(e.target.value)}
-                  style={inputStyle}
                 />
               </div>
             )}
 
-            {/* Perfil + botão descobrir */}
-            <div
-              style={{
-                display: "flex",
-                gap: "8px",
-                flexWrap: "wrap",
-                marginBottom: "8px",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: "180px" }}>
-                <label style={labelStyle}>
-                  🧬 Perfil do investidor (obrigatório):
-                </label>
+            {/* PERFIL */}
+            <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <label style={labelStyle}>🧬 Perfil:</label>
                 <select
-                  value={perfilInvestidor}
-                  onChange={(e) =>
-                    setPerfilInvestidor(e.target.value as PerfilInvestidor)
-                  }
                   style={selectStyle}
+                  value={perfilInvestidor}
+                  onChange={(e) => setPerfilInvestidor(e.target.value as PerfilInvestidor)}
                 >
                   <option value="">Selecione...</option>
                   <option value="conservador">Conservador</option>
@@ -540,105 +385,76 @@ setPanelFlip(true);
                 </select>
               </div>
 
-              <div
+              <button
+                type="button"
                 style={{
-                  width: "190px",
-                  display: "flex",
-                  alignItems: "flex-end",
+                  ...buttonSecondaryStyle,
+                  width: 190,
+                  marginTop: 22,
+                  background: "rgba(22,163,74,0.1)",
+                  borderColor: "#22c55e55",
+                  color: "#22c55e",
                 }}
+                onClick={() => setShowPerfilModal(true)}
               >
-                <button
-                  type="button"
-                  style={{
-                    ...buttonSecondaryStyle,
-                    width: "100%",
-                    borderColor: "#22c55e55",
-                    color: "#22c55e",
-                    background: "rgba(22,163,74,0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "6px",
-                    fontSize: "0.8rem",
-                    padding: "8px 10px",
-                  }}
-                  onClick={() => setShowPerfilModal(true)}
-                >
-                  ❓ Não sei, quero descobrir
-                </button>
-              </div>
+                ❓ Descobrir perfil
+              </button>
             </div>
 
+            {/* DESCRIÇÃO DO PERFIL */}
             {perfilInvestidor && (
               <div
                 style={{
                   background: "rgba(15,23,42,0.95)",
-                  borderRadius: "10px",
+                  padding: 8,
+                  borderRadius: 9,
                   border: "1px solid rgba(148,163,184,0.4)",
-                  padding: "7px 9px",
-                  fontSize: "0.8rem",
+                  marginTop: 8,
+                  fontSize: 13,
                   color: "#9ca3af",
-                  marginBottom: "8px",
                 }}
               >
                 <b style={{ color: "#22c55e" }}>Perfil selecionado:</b>{" "}
-                {perfilInvestidor.toUpperCase()} —{" "}
-                {descricaoPerfil(perfilInvestidor)}
+                {perfilInvestidor.toUpperCase()}
               </div>
             )}
 
-            {/* Foco da análise - obrigatório */}
-            <div style={{ marginBottom: "8px" }}>
-              <label style={labelStyle}>🎯 Foco da análise (obrigatório):</label>
+            {/* FOCO */}
+            <div>
+              <label style={labelStyle}>🎯 Foco:</label>
               <select
-                value={focoAnalise}
-                onChange={(e) =>
-                  setFocoAnalise(e.target.value as FocoAnalise)
-                }
                 style={selectStyle}
+                value={focoAnalise}
+                onChange={(e) => setFocoAnalise(e.target.value as FocoAnalise)}
               >
-                <option value="">Selecione o foco...</option>
-                <option value="dividendos">Foco em dividendos</option>
-                <option value="renda_passiva">Foco em renda passiva</option>
-                <option value="valorizacao">Foco em valorização da cota</option>
-                <option value="crescimento">
-                  Foco em crescimento da empresa/ativo
-                </option>
+                <option value="">Selecione...</option>
+                <option value="dividendos">📤 Dividendos</option>
+                <option value="renda_passiva">🏦 Renda Passiva</option>
+                <option value="valorizacao">📈 Valorização</option>
+                <option value="crescimento">🚀 Crescimento</option>
               </select>
             </div>
 
-            {/* (REMOVIDO) card azul de foco selecionado pra ganhar espaço */}
-
-            {/* Observação opcional */}
-            <div style={{ marginBottom: "8px" }}>
-              <label style={labelStyle}>
-                📝 Observação (opcional – contexto extra, se quiser):
-              </label>
+            {/* OBSERVAÇÃO */}
+            <div>
+              <label style={labelStyle}>📝 Observação (opcional):</label>
               <textarea
                 rows={3}
-                placeholder={
-                  tipoInvestimento === "montar_carteira"
-                    ? "Ex: Quero uma carteira balanceada para longo prazo, com foco em crescimento mas sem abrir mão de alguma renda passiva."
-                    : "Ex: Quero comparar esse ativo com outro da mesma categoria, já tenho posição nele, etc."
-                }
+                style={{ ...inputStyle, minHeight: 70 }}
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                style={{
-                  ...inputStyle,
-                  resize: "vertical",
-                  minHeight: "70px",
-                }}
               />
             </div>
 
-            {/* Botão Analisar */}
+            {/* BOTÃO */}
             <button
               type="submit"
               disabled={carregando}
               style={{
                 width: "100%",
-                padding: "11px",
-                borderRadius: "12px",
+                padding: 12,
+                marginTop: 8,
+                borderRadius: 12,
                 border: "none",
                 background: carregando
                   ? "#15803d"
@@ -647,67 +463,45 @@ setPanelFlip(true);
                 fontWeight: 700,
                 fontSize: "1.05rem",
                 cursor: carregando ? "not-allowed" : "pointer",
-                marginTop: "4px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                gap: "8px",
-                opacity: carregando ? 0.9 : 1,
-                transition: "0.2s",
               }}
             >
               {carregando ? carregandoFrase : "Analisar ativo"}
             </button>
           </form>
         ) : (
+          /* ======================
+             RESULTADO
+          ====================== */
           <>
-            <h3
-              style={{
-                color: "#22c55e",
-                fontSize: "1rem",
-                marginBottom: "8px",
-              }}
-            >
-              📊 Resultado da análise
-            </h3>
+            <h3 style={{ color: "#22c55e", marginBottom: 8 }}>📊 Resultado da análise</h3>
+
             <div
               style={{
                 background: "rgba(11,19,36,0.9)",
                 border: "1px solid rgba(34,197,94,0.25)",
-                borderRadius: "10px",
-                padding: "11px",
-                maxHeight: "340px",
+                borderRadius: 10,
+                padding: 12,
+                maxHeight: 340,
                 overflowY: "auto",
                 fontSize: "0.93rem",
                 lineHeight: 1.5,
-                color: "#e5e7eb",
               }}
-            >
-              {resultado.split("\n").map((linha, i) => (
-                <p key={i} style={{ marginBottom: "6px" }}>
-                  {linha}
-                </p>
-              ))}
-            </div>
+              dangerouslySetInnerHTML={{ __html: formatarAnalise(resultado) }}
+            />
 
             <button
               type="button"
-              onClick={() => {
-                setPanelFlip(false);
-                // se quiser limpar a análise ao voltar:
-                // setResultado("");
-              }}
+              onClick={() => setPanelFlip(false)}
               style={{
-                marginTop: "14px",
+                marginTop: 14,
                 background: "rgba(14,165,233,0.18)",
                 border: "1px solid #0ea5e955",
                 color: "#38bdf8",
-                borderRadius: "9px",
-                padding: "10px",
+                borderRadius: 9,
+                padding: 10,
                 fontWeight: 600,
                 cursor: "pointer",
                 width: "100%",
-                fontSize: "0.95rem",
               }}
             >
               ↩ Nova análise
@@ -716,7 +510,7 @@ setPanelFlip(true);
         )}
       </div>
 
-      {/* Modal de perfil */}
+      {/* Modal */}
       <PerfilModal
         open={showPerfilModal}
         onClose={() => setShowPerfilModal(false)}
@@ -725,6 +519,3 @@ setPanelFlip(true);
     </main>
   );
 }
-
-
-
