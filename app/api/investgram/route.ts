@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "edge";
+// tempo máximo de execução (em segundos)
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
