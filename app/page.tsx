@@ -95,7 +95,6 @@ function formatarAnalise(texto: string) {
   return t;
 }
 
-
 /* ==========================
    MODAL DE PERFIL
 ========================== */
@@ -548,4 +547,5 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
