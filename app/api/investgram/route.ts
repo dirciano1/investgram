@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "edge";
+// aumenta o tempo limite da função (até 60s na Vercel)
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -19,11 +21,11 @@ export async function POST(req: Request) {
 
     const {
       tipoInvestimento, // "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira" etc.
-      ativo,            // PETR4, KNRI11, IVVB11, Tesouro IPCA+
-      perfilInvestidor, // conservador | moderado | agressivo
-      focoAnalise,      // dividendos | valorizacao | crescimento | renda_passiva
-      dataAnalise,      // dd/mm/yyyy digitada pelo usuário
-      observacao,       // texto opcional
+      ativo,             // PETR4, KNRI11, IVVB11, Tesouro IPCA+
+      perfilInvestidor,  // conservador | moderado | agressivo
+      focoAnalise,       // dividendos | valorizacao | crescimento | renda_passiva
+      dataAnalise,       // dd/mm/yyyy digitada pelo usuário
+      observacao,        // texto opcional
     } = body;
 
     const tipo = String(tipoInvestimento || "").toLowerCase();
@@ -77,14 +79,13 @@ export async function POST(req: Request) {
         temperature: 0.45,
         topK: 32,
         topP: 0.9,
-        maxOutputTokens: 1100, // um pouco mais longo, ainda seguro pro timeout
+        maxOutputTokens: 900, // limita pra evitar timeout 25s na Vercel (agora você tem até 60s)
       },
     });
 
     const perfilUpper = String(perfilInvestidor).toUpperCase();
     const focoTexto = String(focoAnalise).toLowerCase();
-    const obs =
-      observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
+    const obs = observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
 
     let prompt = "";
 
@@ -100,13 +101,11 @@ Montar uma CARTEIRA BALANCEADA para um investidor de perfil "${perfilInvestidor}
 Data informada pelo usuário: ${dataAnalise}.
 Observação extra do usuário: ${obs}.
 
-REGRAS IMPORTANTES GERAIS:
+REGRAS IMPORTANTES:
 - Use SEMPRE dados e práticas de alocação atuais para o mercado brasileiro.
 - A soma das porcentagens da carteira DEVE ser exatamente 100%.
 - NÃO repita "não encontrado" nem "data futura" em nenhum momento.
 - Não cite que está usando dados "futuros". Se não tiver algo exato, explique de forma qualitativa.
-- RESPEITE TODAS as seções abaixo. NÃO responda apenas com um parágrafo curto.
-- A resposta deve ter, no mínimo, umas 500 palavras no total.
 
 FORMATO OBRIGATÓRIO DA RESPOSTA (em português do Brasil):
 
@@ -153,6 +152,7 @@ Traga uma conclusão clara, explicando:
 - Lembrar de rebalancear a carteira periodicamente.
 
 Use parágrafos curtos, bullets com "•" ou "-", e emojis discretos (📊, 💸, ⚠️, 🎯).
+Não seja prolixo demais para não ultrapassar o limite de tokens.
       `.trim();
     }
     // ============================
@@ -162,9 +162,7 @@ Use parágrafos curtos, bullets com "•" ou "-", e emojis discretos (📊, 💸
       prompt = `
 Você é o InvestGram, IA especialista em Fundos Imobiliários (FIIs) do mercado brasileiro.
 
-Gere uma análise profissional e organizada para o FII abaixo, seguindo TODAS as seções descritas aqui.
-NÃO responda apenas com uma introdução curta.
-A resposta deve ter corpo completo, com tabela e texto explicativo bem dividido.
+Gere uma análise profissional e organizada para o FII abaixo.
 
 DADOS DO USUÁRIO:
 - Tipo de investimento: FII (Fundo Imobiliário)
@@ -198,7 +196,7 @@ REGRAS PARA DADOS NUMÉRICOS (TABELA):
 Não diga que está usando "dados futuros".
 
 ESTRUTURA DA ANÁLISE (DEPOIS DA TABELA):
-Use seções com títulos claros:
+Use seções com títulos claros, por exemplo:
 
 🔹 VISÃO GERAL DO FUNDO
 - Que tipo de fundo é, quem é o gestor, estratégia geral.
@@ -230,8 +228,7 @@ Use parágrafos curtos, bullets e linguagem simples, mas profissional.
       prompt = `
 Você é o InvestGram, IA especialista em ETFs e fundos de índice.
 
-Gere uma análise COMPLETA do ETF abaixo, com tabela numérica e texto dividido em seções.
-Não responda apenas duas frases; siga TODAS as instruções.
+Analise o ativo abaixo.
 
 DADOS DO USUÁRIO:
 - Tipo de investimento: ETF
@@ -276,8 +273,7 @@ Dê foco em:
       prompt = `
 Você é o InvestGram, IA especializada em Renda Fixa no Brasil.
 
-Analise o ativo de renda fixa abaixo (Tesouro, CDB, LCI, LCA, debênture, etc.) com
-tabela numérica e texto completo, seguindo TODAS as seções.
+Analise o ativo de renda fixa abaixo (Tesouro, CDB, LCI, LCA, debênture, etc.).
 
 DADOS DO USUÁRIO:
 - Tipo de investimento: Renda Fixa
@@ -316,12 +312,7 @@ Seja didático, com frases curtas e foco em explicar prós e contras para o inve
       prompt = `
 Você é o InvestGram, IA especialista em ações brasileiras.
 
-Gere uma ANÁLISE COMPLETA da ação abaixo, com:
-- Tabela numérica logo no início
-- Várias seções de texto (Visão geral, Fundamentos, Dividendos, Riscos, etc.)
-- Linguagem profissional, mas simples
-NÃO responda somente com uma introdução curta.
-Use todas as seções abaixo.
+Gere uma análise profissional da ação abaixo.
 
 DADOS DO USUÁRIO:
 - Tipo de investimento: Ações
@@ -367,7 +358,7 @@ Use seções com títulos claros e emojis discretos, por exemplo:
 🔹 DIVIDENDOS E GERAÇÃO DE CAIXA
 - Se a empresa costuma pagar bons dividendos, regularidade, payout, sustentabilidade.
 
-🔹 CRESCIMENTO E TESE DE INVESTIMENTO
+🔹 CRESCIMENTO E TESE DE INVESTIMENTO (QUANDO FIZER SENTIDO)
 - Motores de crescimento, investimentos, vantagens competitivas.
 
 🔹 RISCOS RELEVANTES
@@ -381,8 +372,8 @@ Use seções com títulos claros e emojis discretos, por exemplo:
 - Resuma em poucos parágrafos quando a ação pode fazer sentido
   e quais pontos o investidor deve acompanhar.
 
-A resposta deve ser bem completa (algo em torno de 500–800 palavras),
-sem enrolação, mas cobrindo todos esses tópicos.
+Use linguagem simples, objetiva e profissional.
+Não seja prolixo demais para não estourar o limite de tokens.
       `.trim();
     }
 
@@ -394,6 +385,7 @@ sem enrolação, mas cobrindo todos esses tópicos.
     return NextResponse.json(
       {
         sucesso: true,
+        // campo que o seu page.tsx está esperando:
         resposta: texto,
       },
       { status: 200 }
