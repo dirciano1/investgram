@@ -42,40 +42,64 @@ function formatarAnalise(texto: string) {
 
   return texto
 
-    // Remove objeto JSON que aparece no início
+    // Remove JSON residual
     .replace(/^\s*\{.*?"resposta":\s*"/, "")
     .replace(/"}\s*$/, "")
 
     // Remove **negrito**
     .replace(/\*\*(.*?)\*\*/g, "$1")
 
-    // Remove barras invertidas e \n duplicados
+    // Conserta \n vindo do Gemini
     .replace(/\\n/g, "\n")
     .replace(/\n{2,}/g, "\n")
 
     // ============================
-    //  TÍTULOS DE SEÇÃO (AZUL)
+    //  TÍTULOS "1. Resumo", "2. Tabela" — Azul + linha
     // ============================
-    // Exemplo: "1. Resumo do Ativo"
     .replace(
-      /^(\d+\.\s.*)$/gm,
-      `<div style="margin-top:14px;margin-bottom:6px;padding-bottom:4px;
-      border-bottom:1px solid #1e293b;
-      color:#38bdf8;font-weight:700;font-size:1rem;">
+      /^(\d+\.\s+[^\n]+)$/gm,
+      `<div style="
+        margin-top:14px;
+        margin-bottom:6px;
+        padding-bottom:4px;
+        border-bottom:1px solid #1e293b;
+        color:#38bdf8;
+        font-weight:700;
+        font-size:1rem;">
         $1
       </div>`
     )
 
     // ============================
-    // LINHAS COM "-": listagem
+    //  ITENS COM “•” em azul universal (#38bdf8)
     // ============================
     .replace(
-      /^- (.*)$/gm,
-      `<div style="color:#e5e7eb;margin-left:12px;margin-bottom:4px;">• $1</div>`
+      /^•\s*(.*)$/gm,
+      `<div style="
+        color:#38bdf8;
+        margin-left:10px;
+        margin-bottom:2px;   /* menor espaço entre itens */
+        font-weight:500;">
+        • $1
+      </div>`
     )
 
     // ============================
-    // EMOJIS → destaque azul
+    // Linhas com "-"
+    // ============================
+    .replace(
+      /^- (.*)$/gm,
+      `<div style="
+        color:#38bdf8;
+        margin-left:10px;
+        margin-bottom:2px;
+        font-weight:500;">
+        • $1
+      </div>`
+    )
+
+    // ============================
+    // Emojis importantes → destacam títulos
     // ============================
     .replace(
       /(📌|📊|📈|⚠️|🎯|🧠)/g,
@@ -83,7 +107,7 @@ function formatarAnalise(texto: string) {
     )
 
     // ============================
-    // SEPARADORES "---"
+    // Separador "---"
     // ============================
     .replace(
       /---+/g,
@@ -91,10 +115,11 @@ function formatarAnalise(texto: string) {
     )
 
     // ============================
-    // QUEBRAS DE LINHA
+    // Quebras de linha
     // ============================
     .replace(/\n/g, "<br>");
 }
+
 
 /* ==========================
    MODAL DE PERFIL
@@ -548,6 +573,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
