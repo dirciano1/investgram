@@ -40,57 +40,62 @@ const labelStyle: React.CSSProperties = {
 function formatarAnalise(texto: string) {
   if (!texto) return "";
 
-  let t = texto;
+  return texto
 
-  // Remover artefatos \n\n, \t etc.
-  t = t.replace(/\\n/g, "\n");
-  t = t.replace(/\r/g, "");
-  t = t.replace(/\n{3,}/g, "\n\n"); // remove quebras excessivas
+    // Remove objeto JSON que aparece no início
+    .replace(/^\s*\{.*?"resposta":\s*"/, "")
+    .replace(/"}\s*$/, "")
 
-  // Remover **negritos**
-  t = t.replace(/\*\*(.*?)\*\*/g, "$1");
+    // Remove **negrito**
+    .replace(/\*\*(.*?)\*\*/g, "$1")
 
-  // -----------------------------
-  // TITULOS COM EMOJI
-  // ex.: "📌 1. Resumo"
-  // -----------------------------
-  t = t.replace(
-    /^([📌📊📈⚠️🎯🧠].+)$/gm,
-    `<div style="color:#22c55e;font-weight:700;font-size:1.05rem;margin:12px 0 6px;">$1</div>`
-  );
+    // Remove barras invertidas e \n duplicados
+    .replace(/\\n/g, "\n")
+    .replace(/\n{2,}/g, "\n")
 
-  // -----------------------------
-  // LISTAS COM "-"
-  // -----------------------------
-  t = t.replace(
-    /^- (.*)$/gm,
-    `<div style="color:#38bdf8;margin-left:10px;line-height:1.45;">• $1</div>`
-  );
+    // ============================
+    //  TÍTULOS DE SEÇÃO (AZUL)
+    // ============================
+    // Exemplo: "1. Resumo do Ativo"
+    .replace(
+      /^(\d+\.\s.*)$/gm,
+      `<div style="margin-top:14px;margin-bottom:6px;padding-bottom:4px;
+      border-bottom:1px solid #1e293b;
+      color:#38bdf8;font-weight:700;font-size:1rem;">
+        $1
+      </div>`
+    )
 
-  // -----------------------------
-  // FORÇAR ESPAÇAMENTO ENTRE PARÁGRAFOS
-  // -----------------------------
-  t = t.replace(/\n([^\n-•])/g, `<br><br>$1`);
+    // ============================
+    // LINHAS COM "-": listagem
+    // ============================
+    .replace(
+      /^- (.*)$/gm,
+      `<div style="color:#e5e7eb;margin-left:12px;margin-bottom:4px;">• $1</div>`
+    )
 
-  // -----------------------------
-  // SEPARADORES "---"
-  // -----------------------------
-  t = t.replace(/---+/g, `<hr style="border-color:#1f2937;opacity:0.5;margin:14px 0;">`);
+    // ============================
+    // EMOJIS → destaque azul
+    // ============================
+    .replace(
+      /(📌|📊|📈|⚠️|🎯|🧠)/g,
+      `<span style="color:#38bdf8;font-weight:700;">$1</span>`
+    )
 
-  // -----------------------------
-  // LIMPAR TABELA RÁPIDA
-  // Qualquer linha com "XX:" ou "Preço" ou "DY" etc vira lista
-  // -----------------------------
-  t = t.replace(
-    /(?:Preço aproximado|DY|Dividendos|P\/L|P\/VP|ROE|Liquidez|Setor|Vacância|Tipo de carteira|Dívida líquida).*?:.*?(?=\n|$)/g,
-    (linha) =>
-      `<div style="color:#38bdf8;margin-left:10px;line-height:1.45;">• ${linha.trim()}</div>`
-  );
+    // ============================
+    // SEPARADORES "---"
+    // ============================
+    .replace(
+      /---+/g,
+      `<hr style="border-color:#1f2937;margin:10px 0;opacity:0.4;">`
+    )
 
-  // -----------------------------
-  // Quebras finais
-  // -----------------------------
-  t = t.replace(/\n/g, "<br>");
+    // ============================
+    // QUEBRAS DE LINHA
+    // ============================
+    .replace(/\n/g, "<br>");
+}
+
 
   return t;
 }
@@ -547,5 +552,6 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
