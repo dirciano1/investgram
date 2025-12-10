@@ -1,137 +1,122 @@
+// app/api/investgram/route.ts
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "edge";
+
+const GEMINI_KEY = process.env.GEMINI_API_KEY;
+
+if (!GEMINI_KEY) {
+  // Isso aparece só no log da Vercel
+  console.error("⚠️ GEMINI_API_KEY não configurada nas variáveis de ambiente.");
+}
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
     const {
-      // nomes antigos (se um dia usar)
-      tipo,
-      perfil,
-      foco,
-      objetivo,
-      data,
-      // nomes que o front atual envia
-      tipoInvestimento,
-      ativo,
-      perfilInvestidor,
-      focoAnalise,
-      dataAnalise,
-      observacao,
+      tipoInvestimento,   // "acoes" | "fii" | "etf" | "renda_fixa" | "carteira_balanceada"
+      ativo,              // PETR4, HGLG11, etc (não obrigatório p/ carteira_balanceada)
+      dataAnalise,        // "10/12/2025"
+      perfilInvestidor,   // "conservador" | "moderado" | "agressivo"
+      focoAnalise,        // "dividendos" | "crescimento" | etc (opcional)
+      observacao,         // texto extra opcional
     } = body;
 
-    const finalTipo: string = tipo || tipoInvestimento || "acoes";
-    const finalAtivo: string = (ativo || "").toString();
-    const finalPerfil: string =
-      perfil || perfilInvestidor || "moderado";
-    const finalFoco: string =
-      foco || focoAnalise || "crescimento";
-    const finalData: string =
-      data ||
-      dataAnalise ||
-      new Date().toLocaleDateString("pt-BR");
-
-    const finalObjetivo: string =
-      objetivo ||
-      (finalTipo === "montar_carteira"
-        ? "montar_carteira_balanceada"
-        : "analise_ativo_pontual");
-
-    // Validação básica
-    if (!finalTipo || !finalPerfil || !finalFoco) {
+    if (!tipoInvestimento || !perfilInvestidor || !dataAnalise) {
       return NextResponse.json(
-        { error: "Campos obrigatórios faltando (tipo, perfil ou foco)." },
+        { error: "tipoInvestimento, perfilInvestidor e dataAnalise são obrigatórios." },
         { status: 400 }
       );
     }
 
-    if (finalTipo !== "montar_carteira" && !finalAtivo) {
+    // Para qualquer coisa que NÃO seja "montar carteira", ativo é obrigatório
+    if (tipoInvestimento !== "carteira_balanceada" && !ativo) {
       return NextResponse.json(
-        { error: "Informe o ativo para análise." },
+        { error: "O campo 'ativo' é obrigatório para esse tipo de investimento." },
         { status: 400 }
       );
     }
 
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY não configurada.");
+    if (!GEMINI_KEY) {
       return NextResponse.json(
-        { error: "GEMINI_API_KEY não configurada no ambiente." },
+        { error: "GEMINI_API_KEY não configurada no servidor." },
         { status: 500 }
       );
     }
 
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-    });
+    let prompt: string;
 
-    const textoObservacao = observacao && observacao.trim().length
-      ? observacao
-      : "nenhuma";
+    // ==========================
+    // CASO 1: MONTAR CARTEIRA
+    // ==========================
+    if (tipoInvestimento === "carteira_balanceada") {
+      prompt = `
+Você é o InvestGram, IA especialista em alocação de carteira.
 
-    // Prompt diferente se for montar carteira
-    const prompt =
-      finalTipo === "montar_carteira"
-        ? `
-Você é o InvestGram, IA especialista em estratégia de investimentos e alocação de carteira.
+Monte uma CARTEIRA BALANCEADA em porcentagem (%) do capital total,
+considerando:
 
-O usuário quer MONTAR UMA CARTEIRA BALANCEADA.
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoAnalise || "equilíbrio entre risco e retorno"}
+- Data da análise: ${dataAnalise}
+- Contexto extra do usuário: ${observacao || "nenhum"}
 
-DADOS DO USUÁRIO:
-- Perfil do investidor: ${finalPerfil}
-- Foco: ${finalFoco}
-- Objetivo declarado: ${finalObjetivo}
-- Data da análise: ${finalData}
-- Observação extra: ${textoObservacao}
-
-TAREFA:
-1. Sugira uma alocação percentual da carteira entre:
-   - Renda fixa
+Regras da resposta:
+1. Divida em GRANDES CLASSES de ativos, por exemplo:
+   - Renda fixa (pós, prefixado, IPCA)
    - Ações Brasil
-   - Ações internacionais / ETFs
-   - Fundos imobiliários (FII)
+   - FIIs (fundos imobiliários)
+   - ETFs (Brasil e/ou exterior)
    - Caixa / reserva de oportunidade
-2. Explique o porquê de cada percentual, alinhando ao perfil e ao foco.
-3. Se fizer sentido, sugira exemplos de ativos dentro de cada classe (ex: tipos de títulos, setores ou classes de ETFs/FIIs – NÃO precisa citar tickers específicos).
-4. Mostre:
-   - Nível esperado de risco/volatilidade da carteira
-   - Horizonte de tempo recomendado
-   - Principais riscos a observar
-5. Termine com um resumo objetivo: quando essa carteira funciona bem e quando NÃO funciona.
+2. Para cada classe:
+   - Informe a porcentagem ideal (%)
+   - Explique a lógica dessa classe para o perfil ${perfilInvestidor}
+   - Sugira 2 ou 3 exemplos de ativos / tipos, sem tratar como recomendação definitiva.
+3. Mostre:
+   - Versão resumida da carteira em forma de tabela ou lista organizada
+   - Possíveis ajustes caso o investidor queira mais segurança ou mais risco
+4. Termine com um lembrete claro:
+   - É uma análise educacional, não uma recomendação formal de investimento.
+`;
+    }
 
-Organize a resposta em seções claras.
-`
-        : `
+    // ==========================
+    // CASO 2: ANALISAR UM ATIVO
+    // ==========================
+    else {
+      prompt = `
 Você é o InvestGram, IA especialista em análise de investimentos.
 
-Analise o ativo abaixo com profundidade, trazendo:
-- Descrição curta do ativo
-- Principais números fundamentais
-- Indicadores como DY, P/L, P/VP, ROE, dívida, crescimento
-- Indicadores técnicos em alto nível (tendência, volatilidade, suportes e resistências importantes)
-- Interpretação com base no foco do investidor
-- Principais riscos
-- Recomendação final baseada no perfil (${finalPerfil})
-- Estrutura bem organizada em seções
+Analise o ativo abaixo com profundidade, gerando uma análise clara, organizada
+e profissional, em português do Brasil.
 
-DADOS DO USUÁRIO:
-- Tipo de investimento: ${finalTipo}
-- Ativo: ${finalAtivo}
-- Perfil do investidor: ${finalPerfil}
-- Foco: ${finalFoco}
-- Objetivo: ${finalObjetivo}
-- Data da análise: ${finalData}
-- Observação extra: ${textoObservacao}
+DADOS:
+- Tipo de investimento: ${tipoInvestimento}
+- Ativo: ${ativo}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoAnalise || "análise completa do ativo"}
+- Data da análise: ${dataAnalise}
+- Observação extra do usuário: ${observacao || "nenhuma"}
 
-IMPORTANTE:
-- Seja direto, claro e completo
-- Não invente números absurdos: use intervalos ou ordem de grandeza quando necessário
-- Gere uma análise no estilo profissional InvestGram
+Na resposta, siga esta estrutura:
+
+1. Visão geral do ativo
+2. Principais pontos fundamentais (sem inventar números absurdos)
+3. Pontos fortes
+4. Principais riscos
+5. Como esse ativo se encaixa no perfil ${perfilInvestidor}
+6. Interpretação específica com foco em: ${focoAnalise || "análise geral"}
+7. Conclusão final:
+   - Compra, manter, observar, reduzir exposição, etc. (sempre com justificativa)
+8. Aviso final:
+   - Lembrar que é uma análise educacional e não substitui consultoria profissional.
 `;
+    }
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -144,10 +129,13 @@ IMPORTANTE:
       },
       { status: 200 }
     );
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
-      { error: "Erro interno na API do InvestGram" },
+      {
+        error: "Erro interno na API do InvestGram.",
+        detalhe: err?.message || "Sem mensagem detalhada.",
+      },
       { status: 500 }
     );
   }
