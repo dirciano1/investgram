@@ -37,35 +37,64 @@ const labelStyle: React.CSSProperties = {
   color: "#e5e7eb",
 };
 
-/* ==========================
-   FORMATADOR DA ANÁLISE
-========================== */
 function formatarAnalise(texto: string) {
   if (!texto) return "";
 
-  return texto
-    // Remove **negrito**
-    .replace(/\*\*(.*?)\*\*/g, "$1")
+  let t = texto;
 
-    // Títulos com emojis → verde
-    .replace(/^([📌📊📈⚠️🎯🧠].+)$/gm,
-      `<span style="color:#22c55e;font-weight:700;">$1</span>`)
+  // Remover artefatos \n\n, \t etc.
+  t = t.replace(/\\n/g, "\n");
+  t = t.replace(/\r/g, "");
+  t = t.replace(/\n{3,}/g, "\n\n"); // remove quebras excessivas
 
-    // Listas de "-" → marcadores azuis
-    .replace(/^- (.*)$/gm,
-      `<div style="color:#38bdf8;margin-left:10px;">• $1</div>`)
+  // Remover **negritos**
+  t = t.replace(/\*\*(.*?)\*\*/g, "$1");
 
-    // Separadores
-    .replace(/---+/g,
-      `<hr style="border-color:#1f2937;opacity:0.5;margin:10px 0;">`)
+  // -----------------------------
+  // TITULOS COM EMOJI
+  // ex.: "📌 1. Resumo"
+  // -----------------------------
+  t = t.replace(
+    /^([📌📊📈⚠️🎯🧠].+)$/gm,
+    `<div style="color:#22c55e;font-weight:700;font-size:1.05rem;margin:12px 0 6px;">$1</div>`
+  );
 
-    // Emojis marcando título
-    .replace(/(📌|📊|📈|⚠️|🎯|🧠)/g,
-      `<span style="color:#22c55e;font-weight:700;">$1</span>`)
+  // -----------------------------
+  // LISTAS COM "-"
+  // -----------------------------
+  t = t.replace(
+    /^- (.*)$/gm,
+    `<div style="color:#38bdf8;margin-left:10px;line-height:1.45;">• $1</div>`
+  );
 
-    // Quebra de linha
-    .replace(/\n/g, "<br>");
+  // -----------------------------
+  // FORÇAR ESPAÇAMENTO ENTRE PARÁGRAFOS
+  // -----------------------------
+  t = t.replace(/\n([^\n-•])/g, `<br><br>$1`);
+
+  // -----------------------------
+  // SEPARADORES "---"
+  // -----------------------------
+  t = t.replace(/---+/g, `<hr style="border-color:#1f2937;opacity:0.5;margin:14px 0;">`);
+
+  // -----------------------------
+  // LIMPAR TABELA RÁPIDA
+  // Qualquer linha com "XX:" ou "Preço" ou "DY" etc vira lista
+  // -----------------------------
+  t = t.replace(
+    /(?:Preço aproximado|DY|Dividendos|P\/L|P\/VP|ROE|Liquidez|Setor|Vacância|Tipo de carteira|Dívida líquida).*?:.*?(?=\n|$)/g,
+    (linha) =>
+      `<div style="color:#38bdf8;margin-left:10px;line-height:1.45;">• ${linha.trim()}</div>`
+  );
+
+  // -----------------------------
+  // Quebras finais
+  // -----------------------------
+  t = t.replace(/\n/g, "<br>");
+
+  return t;
 }
+
 
 /* ==========================
    MODAL DE PERFIL
@@ -519,3 +548,4 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
