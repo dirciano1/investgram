@@ -8,117 +8,130 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const {
-      tipoInvestimento, // "acoes", "fii", "etf", "renda_fixa", "carteira_balanceada"
-      ativo,            // PETR4, HGLG11, IVVB11, Tesouro IPCA+
-      dataAnalise,      // "10/12/2025"
-      perfilInvestidor, // "conservador" | "moderado" | "agressivo"
-      focoAnalise,      // "dividendos" | "valorizacao" | "crescimento" | "renda_passiva"
-      observacao,       // texto opcional
+      // nomes antigos (se um dia usar)
+      tipo,
+      perfil,
+      foco,
+      objetivo,
+      data,
+      // nomes que o front atual envia
+      tipoInvestimento,
+      ativo,
+      perfilInvestidor,
+      focoAnalise,
+      dataAnalise,
+      observacao,
     } = body;
 
-    if (!tipoInvestimento || !ativo || !perfilInvestidor || !focoAnalise) {
+    const finalTipo: string = tipo || tipoInvestimento || "acoes";
+    const finalAtivo: string = (ativo || "").toString();
+    const finalPerfil: string =
+      perfil || perfilInvestidor || "moderado";
+    const finalFoco: string =
+      foco || focoAnalise || "crescimento";
+    const finalData: string =
+      data ||
+      dataAnalise ||
+      new Date().toLocaleDateString("pt-BR");
+
+    const finalObjetivo: string =
+      objetivo ||
+      (finalTipo === "montar_carteira"
+        ? "montar_carteira_balanceada"
+        : "analise_ativo_pontual");
+
+    // Validação básica
+    if (!finalTipo || !finalPerfil || !finalFoco) {
       return NextResponse.json(
-        { error: "Campos obrigatórios faltando." },
+        { error: "Campos obrigatórios faltando (tipo, perfil ou foco)." },
+        { status: 400 }
+      );
+    }
+
+    if (finalTipo !== "montar_carteira" && !finalAtivo) {
+      return NextResponse.json(
+        { error: "Informe o ativo para análise." },
         { status: 400 }
       );
     }
 
     if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY não configurada.");
       return NextResponse.json(
-        { error: "GEMINI_API_KEY não configurada nas variáveis de ambiente." },
+        { error: "GEMINI_API_KEY não configurada no ambiente." },
         { status: 500 }
       );
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    let prompt: string;
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+    });
 
-    // ===========================
-    // MODO 1 – MONTAR CARTEIRA
-    // ===========================
-    if (tipoInvestimento === "carteira_balanceada") {
-      prompt = `
-Você é o InvestGram, uma IA especialista em montar carteiras balanceadas de investimento.
+    const textoObservacao = observacao && observacao.trim().length
+      ? observacao
+      : "nenhuma";
 
-Monte uma carteira balanceada personalizada para o investidor abaixo.
+    // Prompt diferente se for montar carteira
+    const prompt =
+      finalTipo === "montar_carteira"
+        ? `
+Você é o InvestGram, IA especialista em estratégia de investimentos e alocação de carteira.
 
-DADOS DO USUÁRIO
-- Perfil do investidor: ${perfilInvestidor}
-- Foco da análise: ${focoAnalise}
-- Data da análise: ${dataAnalise || "não informada"}
-- Ativo de referência ou exemplo inicial informado: ${ativo}
-- Observação extra: ${observacao || "nenhuma"}
+O usuário quer MONTAR UMA CARTEIRA BALANCEADA.
 
-TAREFA
-1. Sugira uma carteira completa, com porcentagem IDEAL para cada classe:
-   - Caixa / Reserva de oportunidade
+DADOS DO USUÁRIO:
+- Perfil do investidor: ${finalPerfil}
+- Foco: ${finalFoco}
+- Objetivo declarado: ${finalObjetivo}
+- Data da análise: ${finalData}
+- Observação extra: ${textoObservacao}
+
+TAREFA:
+1. Sugira uma alocação percentual da carteira entre:
    - Renda fixa
    - Ações Brasil
-   - Fundos imobiliários (FIIs)
-   - ETFs
-   - (Opcional) Ações/ETFs internacionais
-2. Mostre uma TABELA textual com:
-   - Classe
-   - Percentual recomendado
-   - Nível de risco de 1 a 5
-3. Explique POR QUE essa distribuição faz sentido para o perfil "${perfilInvestidor}".
-4. Dê exemplos de ativos dentro de cada classe (ex.: PETR4, HGLG11, IVVB11, Tesouro IPCA+ etc.).
-5. Aponte os principais riscos da carteira.
-6. Termine com um "Resumo Final InvestGram" em 3–5 frases.
+   - Ações internacionais / ETFs
+   - Fundos imobiliários (FII)
+   - Caixa / reserva de oportunidade
+2. Explique o porquê de cada percentual, alinhando ao perfil e ao foco.
+3. Se fizer sentido, sugira exemplos de ativos dentro de cada classe (ex: tipos de títulos, setores ou classes de ETFs/FIIs – NÃO precisa citar tickers específicos).
+4. Mostre:
+   - Nível esperado de risco/volatilidade da carteira
+   - Horizonte de tempo recomendado
+   - Principais riscos a observar
+5. Termine com um resumo objetivo: quando essa carteira funciona bem e quando NÃO funciona.
 
-IMPORTANTE
-- Respeite o perfil do investidor (conservador, moderado, agressivo).
-- Ajuste a exposição a risco conforme o perfil e o foco escolhido (${focoAnalise}).
-- Seja direto, organizado em seções e use listas para facilitar a leitura.
-      `;
-    } else {
-      // ===========================
-      // MODO 2 – ANÁLISE DE UM ATIVO
-      // ===========================
-      prompt = `
+Organize a resposta em seções claras.
+`
+        : `
 Você é o InvestGram, IA especialista em análise de investimentos.
 
 Analise o ativo abaixo com profundidade, trazendo:
-
-1) Visão geral do ativo
-   - Descrição curta
-   - Setor, tipo de ativo e contexto no mercado brasileiro
-
-2) Fundamentos (dados estimados e coerentes, não invente números absurdos)
-   - Principais indicadores: DY, P/L, P/VP, ROE, margem, dívida líquida/EBITDA
-   - Ponto de atenção em relação a endividamento, crescimento e geração de caixa
-
-3) Análise qualitativa
-   - Tese principal de investimento
-   - Riscos específicos do ativo e do setor
-   - Vantagens competitivas (se houver)
-
-4) Análise alinhada ao investidor
-   - Perfil do investidor: ${perfilInvestidor}
-   - Foco da análise: ${focoAnalise}
-   - Como esse ativo se encaixa em uma carteira de ${perfilInvestidor}
-   - Quando ele pode fazer sentido e quando NÃO faz sentido
-
-5) Conclusão InvestGram
-   - Classifique em: "Compra", "Manter", "Observação" ou "Fora do Radar" para esse perfil
-   - Explique com clareza sua conclusão
+- Descrição curta do ativo
+- Principais números fundamentais
+- Indicadores como DY, P/L, P/VP, ROE, dívida, crescimento
+- Indicadores técnicos em alto nível (tendência, volatilidade, suportes e resistências importantes)
+- Interpretação com base no foco do investidor
+- Principais riscos
+- Recomendação final baseada no perfil (${finalPerfil})
+- Estrutura bem organizada em seções
 
 DADOS DO USUÁRIO:
-- Tipo de investimento: ${tipoInvestimento}
-- Ativo: ${ativo}
-- Perfil do investidor: ${perfilInvestidor}
-- Foco: ${focoAnalise}
-- Data da análise: ${dataAnalise || "não informada"}
-- Observação extra: ${observacao || "nenhuma"}
+- Tipo de investimento: ${finalTipo}
+- Ativo: ${finalAtivo}
+- Perfil do investidor: ${finalPerfil}
+- Foco: ${finalFoco}
+- Objetivo: ${finalObjetivo}
+- Data da análise: ${finalData}
+- Observação extra: ${textoObservacao}
 
 IMPORTANTE:
-- Escreva em português do Brasil.
-- Seja direto, organizado em seções com títulos.
-- Não prometa retornos garantidos.
-      `;
-    }
+- Seja direto, claro e completo
+- Não invente números absurdos: use intervalos ou ordem de grandeza quando necessário
+- Gere uma análise no estilo profissional InvestGram
+`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -127,6 +140,15 @@ IMPORTANTE:
     return NextResponse.json(
       {
         sucesso: true,
-        resposta: texto, // para o front ler em data.resposta
-        analise: texto,  // alias extra se quiser usar em outro lugar
+        analise: texto,
       },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("Erro InvestGram API:", err);
+    return NextResponse.json(
+      { error: "Erro interno na API do InvestGram" },
+      { status: 500 }
+    );
+  }
+}
