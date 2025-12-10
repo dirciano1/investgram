@@ -1,219 +1,381 @@
+// app/api/investgram/route.ts
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const runtime = "nodejs";      // para fugir do limite de 25s do Edge
-export const maxDuration = 60;        // segurança extra no Vercel
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+export const runtime = "edge";
 
 export async function POST(req: Request) {
   try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY não configurada.");
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY não configurada no servidor." },
+        { status: 500 }
+      );
+    }
+
     const body = await req.json();
 
     const {
-      tipoInvestimento,
-      ativo,
-      dataAnalise,
-      perfilInvestidor,
-      focoAnalise,
-      observacao,
+      tipoInvestimento, // "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira" etc.
+      ativo,             // PETR4, KNRI11, IVVB11, Tesouro IPCA+
+      perfilInvestidor,  // conservador | moderado | agressivo
+      focoAnalise,       // dividendos | valorizacao | crescimento | renda_passiva
+      dataAnalise,       // dd/mm/yyyy digitada pelo usuário
+      observacao,        // texto opcional
     } = body;
 
-    // Normaliza strings
     const tipo = String(tipoInvestimento || "").toLowerCase();
-    const perfil = String(perfilInvestidor || "").toLowerCase();
-    const foco = String(focoAnalise || "").toLowerCase();
-    const data = String(dataAnalise || "").trim();
 
-    if (!tipo || !ativo || !perfil) {
+    const isCarteira =
+      tipo.includes("carteira") ||
+      tipo.includes("balanceada") ||
+      tipo.includes("montar");
+
+    // Validações básicas (em carteira não obrigo "ativo")
+    if (!tipoInvestimento) {
       return NextResponse.json(
-        { error: "Campos obrigatórios faltando (tipo, ativo ou perfil)." },
+        { error: "Tipo de investimento é obrigatório." },
         { status: 400 }
       );
     }
 
+    if (!isCarteira && !ativo) {
+      return NextResponse.json(
+        { error: "Informe o ativo (código ou nome)." },
+        { status: 400 }
+      );
+    }
+
+    if (!dataAnalise) {
+      return NextResponse.json(
+        { error: "Informe a data da análise." },
+        { status: 400 }
+      );
+    }
+
+    if (!perfilInvestidor) {
+      return NextResponse.json(
+        { error: "Perfil do investidor é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    if (!focoAnalise) {
+      return NextResponse.json(
+        { error: "Foco da análise é obrigatório." },
+        { status: 400 }
+      );
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      // Se o seu plano tiver Grounding com Google Search, isso ativa busca na web
-      tools: [{ googleSearch: {} }],
+      generationConfig: {
+        temperature: 0.45,
+        topK: 32,
+        topP: 0.9,
+        maxOutputTokens: 900, // limita pra evitar timeout 25s na Vercel
+      },
     });
 
-    // Regras gerais para números
-    const instrucoesNumeros = `
-REGRAS IMPORTANTES PARA NÚMEROS:
-- Sempre que possível, use Google Search para buscar dados ATUAIS do ativo.
-- Foque em fontes brasileiras de finanças (B3, Status Invest, Fundamentus, sites de bancos, etc).
-- Se não conseguir um número confiável, NÃO escreva "não encontrado" nem "data futura".
-- Em vez disso, use algo como "não disponível com segurança" ou comente qualitativamente.
-- Não invente números aleatórios só para preencher tabela.
-`;
+    const perfilUpper = String(perfilInvestidor).toUpperCase();
+    const focoTexto = String(focoAnalise).toLowerCase();
+    const obs = observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
 
     let prompt = "";
 
-    // ==========================
-    // 1) AÇÕES / FII / ETF
-    // ==========================
-    if (tipo === "acoes" || tipo === "fii" || tipo === "etf") {
+    // ============================
+    // 1) MODO MONTAR CARTEIRA
+    // ============================
+    if (isCarteira) {
       prompt = `
-Você é o InvestGram, IA especialista em análise de ativos da B3 (ações, FIIs e ETFs).
-
-${instrucoesNumeros}
+Você é o InvestGram, uma IA especializada em montar carteiras balanceadas para investidores brasileiros.
 
 OBJETIVO:
-- Gerar uma análise COMPLETA e ao mesmo tempo prática do ativo solicitado.
-- A análise deve respeitar o perfil do investidor (${perfil}) e o foco (${foco || "não informado"}).
+Montar uma CARTEIRA BALANCEADA para um investidor de perfil "${perfilInvestidor}" com foco em "${focoTexto}".
+Data informada pelo usuário: ${dataAnalise}.
+Observação extra do usuário: ${obs}.
 
-PASSO 1 – MONTE UMA TABELA RÁPIDA COM NÚMEROS (SEM MARCAR COMO "DATA FUTURA"):
-Use dados ATUAIS aproximados. Campos esperados (quando possível):
-- Preço atual aproximado (R$)
-- Variação no dia (%)
-- Dividend Yield 12 meses (%)
-- Dividendos 12 meses (R$ por ação/cota)
-- P/L
-- P/VP
-- ROE (%)
-- Margem líquida (%)
-- Dívida Líquida / EBITDA (se fizer sentido para o ativo)
-- Setor / segmento
-- Valor de mercado aproximado (R$ bilhões)
+REGRAS IMPORTANTES:
+- Use SEMPRE dados e práticas de alocação atuais para o mercado brasileiro.
+- A soma das porcentagens da carteira DEVE ser exatamente 100%.
+- NÃO repita "não encontrado" nem "data futura" em nenhum momento.
+- Não cite que está usando dados "futuros". Se não tiver algo exato, explique de forma qualitativa.
 
-Se algum dado não estiver disponível com segurança, escreva algo como:
-- "Dividend Yield 12 meses: não disponível com segurança (manter análise qualitativa)".
+FORMATO OBRIGATÓRIO DA RESPOSTA (em português do Brasil):
 
-PASSO 2 – ESTRUTURE A ANÁLISE EM SEÇÕES COM TÍTULOS E EMOJIS:
-Use esse formato:
+1) TÍTULO RÁPIDO
+Escreva uma linha como:
+"📊 Estratégia de carteira balanceada para perfil ${perfilUpper} focado em ${focoTexto}"
 
-🏦 VISÃO GERAL  
-Explique o que é o ativo, setor, estratégia, tipo (por exemplo: banco, empresa de commodities, FII logístico, FII de escritórios etc).
+2) TABELA DE ALOCAÇÃO POR CLASSE (SIMPLES)
+Liste, linha a linha, as classes de ativos e a porcentagem ideal para esse perfil e foco.
+Exemplo de formato (apenas exemplo de formato, não copie os números):
+- Ações Brasil: 35%
+- Ações EUA / Internacional: 15%
+- Fundos Imobiliários (FIIs): 20%
+- Renda Fixa Pós-fixada (CDI, CDB, Tesouro Selic): 15%
+- Renda Fixa IPCA / Prefixada: 10%
+- Caixa / Reserva de oportunidade: 5%
 
-📊 FUNDAMENTOS  
-– Qualidade de receita e lucros  
-– Alavancagem / endividamento  
-– Margens, ROE, estabilidade do negócio  
+Ajuste a alocação de acordo com o perfil:
+- Conservador: mais renda fixa e caixa, menos ações/risco.
+- Moderado: equilíbrio entre renda fixa, FIIs e ações.
+- Agressivo: mais ações e FIIs, menos renda fixa e caixa.
 
-💰 DIVIDENDOS  
-– Padrão histórico de pagamento  
-– Regularidade e previsibilidade  
-– Se o ativo é mais "renda" ou mais "crescimento"
+3) BREVE COMENTÁRIO POR CLASSE
+Para cada classe da tabela, faça 2–3 frases explicando:
+- Qual o papel dessa classe na carteira.
+- Por que esse peso faz sentido para o perfil informado.
 
-⚖️ RISCO x RETORNO  
-– Volatilidade  
-– Riscos específicos (setor, governo, regulação, vacância, juros, dólar etc)  
-– Pontos de atenção para o investidor
+4) EXEMPLOS PRÁTICOS (SEM SER RECOMENDAÇÃO)
+Dê exemplos de 2–6 ativos para cada classe (tickers ou tipos), SEM parecer recomendação personalizada.
+Exemplo de formato:
+"Exemplos de ativos nessa classe (apenas para estudo, não é recomendação):"
+- Ações Brasil: PETR4, ITUB4, VALE3...
+- FIIs: KNRI11, HGLG11...
 
-🎯 CONCLUSÃO PARA PERFIL ${perfil.toUpperCase()}  
-– Fale se o ativo combna mais com conservador, moderado ou agressivo  
-– Diga se faz mais sentido para renda, crescimento ou equilíbrio  
-– Sugira um papel dentro de uma carteira (por exemplo: "posição satélite", "posição core", etc)
+5) RISCOS E CUIDADOS
+Liste de forma objetiva:
+- Principais riscos dessa estratégia para o perfil informado.
+- Erros comuns que o investidor deve evitar.
 
-DADOS INFORMADOS PELO USUÁRIO:
-- Tipo de investimento: ${tipo}
+6) CONCLUSÃO PARA O PERFIL ${perfilUpper}
+Traga uma conclusão clara, explicando:
+- Por que a carteira está alinhada com o perfil e o foco.
+- Qual horizonte de tempo mínimo recomendado (ex: 5+ anos).
+- Lembrar de rebalancear a carteira periodicamente.
+
+Use parágrafos curtos, bullets com "•" ou "-", e emojis discretos (📊, 💸, ⚠️, 🎯).
+Não seja prolixo demais para não ultrapassar o limite de tokens.
+      `.trim();
+    }
+    // ============================
+    // 2) FIIs
+    // ============================
+    else if (tipo.includes("fii")) {
+      prompt = `
+Você é o InvestGram, IA especialista em Fundos Imobiliários (FIIs) do mercado brasileiro.
+
+Gere uma análise profissional e organizada para o FII abaixo.
+
+DADOS DO USUÁRIO:
+- Tipo de investimento: FII (Fundo Imobiliário)
+- Ativo (ticker): ${ativo}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoTexto}
+- Data informada pelo usuário: ${dataAnalise}
+- Observação extra: ${obs}
+
+REGRAS PARA DADOS NUMÉRICOS (TABELA):
+1. Antes de começar o texto, monte uma TABELA RÁPIDA com as principais métricas, neste formato:
+
+📊 TABELA RÁPIDA (FII)
+- Preço atual da cota (R$):
+- Dividend Yield 12 meses (%):
+- Dividendos 12 meses (R$ por cota):
+- P/VP:
+- Vacância física (%):
+- Vacância financeira (%):
+- Tipo de FII (tijolo, papel, híbrido):
+- Segmentos/Setores principais (ex: escritórios, logística, shoppings):
+- Prazo médio dos contratos (se disponível):
+- Índice de correção predominante (ex: IPCA, IGP-M, CDI):
+
+2. Sempre que não tiver certeza de um número, NÃO escreva:
+   - "não encontrado"
+   - "data futura"
+   Em vez disso, escreva exatamente: "N/D" (não disponível) e explique depois em texto.
+
+3. Use os dados mais recentes que você conseguir acessar (cotação atual / informação recente).
+Não diga que está usando "dados futuros".
+
+ESTRUTURA DA ANÁLISE (DEPOIS DA TABELA):
+Use seções com títulos claros, por exemplo:
+
+🔹 VISÃO GERAL DO FUNDO
+- Que tipo de fundo é, quem é o gestor, estratégia geral.
+
+🔹 QUALIDADE DA CARTEIRA E IMÓVEIS
+- Localização, padrão dos imóveis, diversificação de inquilinos.
+
+🔹 RENDA E DIVIDENDOS
+- Comportamento do DY, regularidade de pagamentos, sustentabilidade dos proventos
+  considerando o foco do investidor em "${focoTexto}".
+
+🔹 RISCOS RELEVANTES
+- Riscos de vacância, setor, alavancagem, concentração em poucos imóveis ou inquilinos etc.
+
+🔹 LEITURA PARA O PERFIL ${perfilUpper}
+- Como um investidor ${perfilInvestidor} deve enxergar esse FII.
+- O que faz sentido para alguém com esse foco de "${focoTexto}".
+
+🔹 CONCLUSÃO FINAL
+- Síntese objetiva: quando o FII faz sentido, pontos de atenção e horizonte de tempo ideal.
+
+Use parágrafos curtos, bullets e linguagem simples, mas profissional.
+      `.trim();
+    }
+    // ============================
+    // 3) ETFs
+    // ============================
+    else if (tipo.includes("etf")) {
+      prompt = `
+Você é o InvestGram, IA especialista em ETFs e fundos de índice.
+
+Analise o ativo abaixo.
+
+DADOS DO USUÁRIO:
+- Tipo de investimento: ETF
+- Ativo (ticker): ${ativo}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoTexto}
+- Data informada pelo usuário: ${dataAnalise}
+- Observação extra: ${obs}
+
+TABELA RÁPIDA (OBRIGATÓRIA ANTES DO TEXTO):
+Monte uma tabela simples com:
+
+📊 TABELA RÁPIDA (ETF)
+- Preço atual da cota (R$):
+- Variação no ano (%):
+- Taxa de administração (% ao ano):
+- Índice de referência (benchmark):
+- Dividend Yield 12 meses (%), se houver:
+- Patrimônio líquido aproximado:
+- Número aproximado de ativos na carteira:
+- Principais países/setores (quando fizer sentido):
+
+Se não tiver certeza de algum dado, use "N/D" no lugar do número
+(NÃO escreva "não encontrado" nem "data futura").
+
+ESTRUTURA DA ANÁLISE:
+🔹 VISÃO GERAL DO ETF
+🔹 COMO ELE REPLICA O ÍNDICE
+🔹 CUSTOS, LIQUIDEZ E RISCOS
+🔹 COMO SE ENCAIXA NO PERFIL ${perfilUpper}
+🔹 CONCLUSÃO FINAL
+
+Dê foco em:
+- Para que tipo de objetivo esse ETF serve (proteção, crescimento, diversificação internacional, etc.).
+- Como encaixar na carteira de um investidor com foco em "${focoTexto}".
+      `.trim();
+    }
+    // ============================
+    // 4) RENDA FIXA
+    // ============================
+    else if (tipo.includes("renda_fixa") || tipo.includes("renda fixa")) {
+      prompt = `
+Você é o InvestGram, IA especializada em Renda Fixa no Brasil.
+
+Analise o ativo de renda fixa abaixo (Tesouro, CDB, LCI, LCA, debênture, etc.).
+
+DADOS DO USUÁRIO:
+- Tipo de investimento: Renda Fixa
 - Ativo: ${ativo}
-- Perfil do investidor: ${perfil}
-- Foco declarado: ${foco || "não informado"}
-- Data informada na tela: ${data || "não informada (use data atual da consulta)"}
-- Observação extra: ${observacao || "nenhuma"}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoTexto}
+- Data informada pelo usuário: ${dataAnalise}
+- Observação extra: ${obs}
+
+TABELA RÁPIDA (ANTES DO TEXTO):
+📊 TABELA RÁPIDA (Renda Fixa)
+- Tipo de título (Tesouro Selic, CDB pós, IPCA+, prefixado, etc.):
+- Taxa atual (ex: IPCA + 5,50% a.a.):
+- Prazo de vencimento:
+- Liquidez (ex: diária, D+X, somente no vencimento):
+- Garantia (Tesouro Nacional, FGC, sem garantia, etc.):
+- Tributação (IR, IOF, isento, etc.):
+
+Se algum dado não estiver claro, use "N/D" em vez de "não encontrado" ou "data futura".
+
+ESTRUTURA DA ANÁLISE:
+🔹 VISÃO GERAL DO TÍTULO
+🔹 COMO GANHA DINHEIRO (MECÂNICA)
+🔹 PRINCIPAIS RISCOS (marcação a mercado, crédito, liquidez, inflação)
+🔹 ADEQUAÇÃO AO PERFIL ${perfilUpper} COM FOCO EM "${focoTexto}"
+🔹 CONCLUSÃO E HORIZONTE DE TEMPO
+
+Seja didático, com frases curtas e foco em explicar prós e contras para o investidor.
       `.trim();
     }
-
-    // ==========================
-    // 2) MONTAR CARTEIRA
-    // (qualquer tipo que contenha "carteira")
-    // ==========================
-    else if (tipo.includes("carteira")) {
-      prompt = `
-Você é o InvestGram, IA especialista em montagem de carteiras balanceadas.
-
-TAREFA:
-Montar uma carteira bem diversificada para um investidor com perfil ${perfil.toUpperCase()}, com foco em "${foco || "objetivo não especificado"}".
-
-A carteira deve ser dividida EM PERCENTUAIS entre as grandes classes de ativos, por exemplo:
-- Renda fixa pós-fixada (CDI)
-- Renda fixa IPCA+
-- Ações Brasil (setores diversos)
-- FIIs
-- ETFs internacionais
-- Caixa (reserva)
-
-Regras:
-- A soma dos percentuais deve dar 100%.
-- Adapte a agressividade dos percentuais ao perfil:
-  - Conservador: mais renda fixa segura, menos renda variável
-  - Moderado: equilíbrio entre renda fixa e variável
-  - Agressivo: maior peso em ações / FIIs / exterior
-- Considere o foco da análise como direcionador (ex: "foco em dividendos", "crescimento", "proteção contra inflação").
-
-FORMATO DA RESPOSTA:
-1) TABELA RESUMO DA CARTEIRA (classe x percentual)  
-2) EXPLICAÇÃO CURTA POR CLASSE (por que esse peso faz sentido)  
-3) ALERTAS E CUIDADOS (volatilidade, horizonte de tempo sugerido)  
-4) CONCLUSÃO resumindo o "espírito" da carteira para o perfil ${perfil.toUpperCase()}.
-
-Dados que o usuário informou:
-- Tipo de investimento selecionado: ${tipoInvestimento}
-- Perfil: ${perfil}
-- Foco: ${foco || "não informado"}
-- Data da análise: ${data || "não informada"}
-- Observação extra do usuário: ${observacao || "nenhuma"}
-      `.trim();
-    }
-
-    // ==========================
-    // 3) RENDA FIXA (CDB, Tesouro, etc.)
-    // ==========================
-    else if (tipo === "renda_fixa") {
-      prompt = `
-Você é o InvestGram, IA especialista em renda fixa brasileira.
-
-O usuário está analisando um investimento de renda fixa cujo identificador informado foi: "${ativo}".
-
-${instrucoesNumeros}
-
-TRAGA:
-1) Visão geral do produto informado (ex: CDB de banco médio, Tesouro IPCA+, debênture, LCI/LCA etc).  
-2) Principais características:
-   - Indexador (CDI, Selic, IPCA, prefixado)
-   - Prazo médio
-   - Liquidez (D+0, D+30, somente no vencimento etc)
-   - Nível de risco do emissor (banco grande, banco médio, empresa privada etc)
-3) Tabela com números aproximados:
-   - Taxa bruta (% ao ano)
-   - Taxa líquida estimada pós imposto (se tiver IR)
-   - Rentabilidade real estimada (acima da inflação), se fizer sentido
-4) Análise para o perfil ${perfil.toUpperCase()}:
-   - O quão adequado é esse ativo para esse perfil
-   - Em que parte da carteira poderia entrar (reserva de oportunidade, colchão de segurança, etc)
-5) Riscos e pontos de atenção.
-
-Use o foco declarado pelo usuário como orientação (ex: "renda passiva", "proteção contra inflação", "liquidez"):
-
-- Foco informado: ${foco || "não informado"}
-
-Outros dados:
-- Data da análise digitada: ${data || "não informada"}
-- Observação extra: ${observacao || "nenhuma"}
-      `.trim();
-    }
-
-    // ==========================
-    // 4) QUALQUER OUTRO TIPO GENÉRICO
-    // ==========================
+    // ============================
+    // 5) AÇÕES (DEFAULT)
+    // ============================
     else {
+      // Trata como ação por padrão
       prompt = `
-Você é o InvestGram, IA especialista em investimentos.
+Você é o InvestGram, IA especialista em ações brasileiras.
 
-Gere uma análise organizada para o ativo "${ativo}", levando em conta:
-- Tipo/estratégia selecionado: ${tipo}
-- Perfil do investidor: ${perfil}
-- Foco: ${foco || "não informado"}
-- Data informada: ${data || "não informada"}
-- Observação: ${observacao || "nenhuma"}
+Gere uma análise profissional da ação abaixo.
 
-Estruture com seções e emojis, e quando fizer sentido, monte uma pequena tabela com números importantes.
-Evite a expressão "data futura" e não diga "não encontrado"; prefira comentar que o dado não está disponível com segurança.
+DADOS DO USUÁRIO:
+- Tipo de investimento: Ações
+- Ticker: ${ativo}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoTexto}
+- Data informada pelo usuário: ${dataAnalise}
+- Observação extra: ${obs}
+
+INSTRUÇÕES PARA DADOS NUMÉRICOS:
+1. Use a cotação e indicadores mais recentes que você conseguir para ${ativo}.
+2. Monte uma TABELA RÁPIDA logo no começo, nesse formato:
+
+📊 TABELA RÁPIDA (Ação)
+- Preço atual (R$):
+- Variação no dia (%):
+- Variação no ano (%):
+- Dividend Yield 12 meses (%):
+- Dividendos 12 meses (R$ por ação):
+- P/L:
+- P/VP:
+- ROE (%):
+- Margem líquida (%):
+- Dívida Líquida / EBITDA:
+- Setor / segmento:
+- Valor de mercado aproximado (R$ bilhões):
+
+3. Se NÃO tiver certeza de algum número, use "N/D" no lugar do valor.
+   NÃO escreva "não encontrado" e NÃO fale "data futura".
+
+4. Não diga que está usando dados futuros.
+   Se os dados forem aproximados, apenas deixe claro que são estimativas.
+
+ESTRUTURA DA ANÁLISE (DEPOIS DA TABELA):
+Use seções com títulos claros e emojis discretos, por exemplo:
+
+🔹 VISÃO GERAL DA EMPRESA
+- O que a empresa faz, presença no Brasil/mundo, principais linhas de negócio.
+
+🔹 FUNDAMENTOS E INDICADORES
+- Comente brevemente os indicadores da tabela: P/L, P/VP, ROE, endividamento etc.
+
+🔹 DIVIDENDOS E GERAÇÃO DE CAIXA
+- Se a empresa costuma pagar bons dividendos, regularidade, payout, sustentabilidade.
+
+🔹 CRESCIMENTO E TESSE INVESTMENT (QUANDO FIZER SENTIDO)
+- Motores de crescimento, investimentos, vantagens competitivas.
+
+🔹 RISCOS RELEVANTES
+- Riscos de setor, regulação, concorrência, política, dívida, governança.
+
+🔹 LEITURA PARA O PERFIL ${perfilUpper} COM FOCO EM "${focoTexto}"
+- Como um investidor ${perfilInvestidor} deve enxergar esse papel.
+- Se faz mais sentido para longo prazo, médio prazo etc.
+
+🔹 CONCLUSÃO FINAL
+- Resuma em poucos parágrafos quando a ação pode fazer sentido
+  e quais pontos o investidor deve acompanhar.
+
+Use linguagem simples, objetiva e profissional.
+Não seja prolixo demais para não estourar o limite de tokens.
       `.trim();
     }
 
+    // Chamada ao Gemini
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const texto = response.text();
@@ -221,11 +383,12 @@ Evite a expressão "data futura" e não diga "não encontrado"; prefira comentar
     return NextResponse.json(
       {
         sucesso: true,
+        // campo que o seu page.tsx está esperando:
         resposta: texto,
       },
       { status: 200 }
     );
-  } catch (err) {
+  } catch (err: any) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
       { error: "Erro interno na API do InvestGram" },
