@@ -3,8 +3,6 @@ import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 export const runtime = "edge";
-// aumenta o tempo limite da função (até 60s na Vercel)
-export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
@@ -21,11 +19,11 @@ export async function POST(req: Request) {
 
     const {
       tipoInvestimento, // "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira" etc.
-      ativo,             // PETR4, KNRI11, IVVB11, Tesouro IPCA+
-      perfilInvestidor,  // conservador | moderado | agressivo
-      focoAnalise,       // dividendos | valorizacao | crescimento | renda_passiva
-      dataAnalise,       // dd/mm/yyyy digitada pelo usuário
-      observacao,        // texto opcional
+      ativo,            // PETR4, KNRI11, IVVB11, Tesouro IPCA+
+      perfilInvestidor, // conservador | moderado | agressivo
+      focoAnalise,      // dividendos | valorizacao | crescimento | renda_passiva
+      dataAnalise,      // dd/mm/yyyy digitada pelo usuário
+      observacao,       // texto opcional
     } = body;
 
     const tipo = String(tipoInvestimento || "").toLowerCase();
@@ -79,13 +77,14 @@ export async function POST(req: Request) {
         temperature: 0.45,
         topK: 32,
         topP: 0.9,
-        maxOutputTokens: 900, // limita pra evitar timeout 25s na Vercel (agora você tem até 60s)
+        maxOutputTokens: 900, // ainda controlamos o tamanho pra não pesar demais
       },
     });
 
     const perfilUpper = String(perfilInvestidor).toUpperCase();
     const focoTexto = String(focoAnalise).toLowerCase();
-    const obs = observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
+    const obs =
+      observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
 
     let prompt = "";
 
@@ -192,31 +191,18 @@ REGRAS PARA DADOS NUMÉRICOS (TABELA):
    - "data futura"
    Em vez disso, escreva exatamente: "N/D" (não disponível) e explique depois em texto.
 
-3. Use os dados mais recentes que você conseguir acessar (cotação atual / informação recente).
+3. Use os dados mais recentes que você conseguir acessar.
 Não diga que está usando "dados futuros".
 
 ESTRUTURA DA ANÁLISE (DEPOIS DA TABELA):
 Use seções com títulos claros, por exemplo:
 
 🔹 VISÃO GERAL DO FUNDO
-- Que tipo de fundo é, quem é o gestor, estratégia geral.
-
 🔹 QUALIDADE DA CARTEIRA E IMÓVEIS
-- Localização, padrão dos imóveis, diversificação de inquilinos.
-
 🔹 RENDA E DIVIDENDOS
-- Comportamento do DY, regularidade de pagamentos, sustentabilidade dos proventos
-  considerando o foco do investidor em "${focoTexto}".
-
 🔹 RISCOS RELEVANTES
-- Riscos de vacância, setor, alavancagem, concentração em poucos imóveis ou inquilinos etc.
-
 🔹 LEITURA PARA O PERFIL ${perfilUpper}
-- Como um investidor ${perfilInvestidor} deve enxergar esse FII.
-- O que faz sentido para alguém com esse foco de "${focoTexto}".
-
 🔹 CONCLUSÃO FINAL
-- Síntese objetiva: quando o FII faz sentido, pontos de atenção e horizonte de tempo ideal.
 
 Use parágrafos curtos, bullets e linguagem simples, mas profissional.
       `.trim();
@@ -239,7 +225,6 @@ DADOS DO USUÁRIO:
 - Observação extra: ${obs}
 
 TABELA RÁPIDA (OBRIGATÓRIA ANTES DO TEXTO):
-Monte uma tabela simples com:
 
 📊 TABELA RÁPIDA (ETF)
 - Preço atual da cota (R$):
@@ -251,8 +236,7 @@ Monte uma tabela simples com:
 - Número aproximado de ativos na carteira:
 - Principais países/setores (quando fizer sentido):
 
-Se não tiver certeza de algum dado, use "N/D" no lugar do número
-(NÃO escreva "não encontrado" nem "data futura").
+Se não tiver certeza de algum dado, use "N/D" no lugar do número.
 
 ESTRUTURA DA ANÁLISE:
 🔹 VISÃO GERAL DO ETF
@@ -260,10 +244,6 @@ ESTRUTURA DA ANÁLISE:
 🔹 CUSTOS, LIQUIDEZ E RISCOS
 🔹 COMO SE ENCAIXA NO PERFIL ${perfilUpper}
 🔹 CONCLUSÃO FINAL
-
-Dê foco em:
-- Para que tipo de objetivo esse ETF serve (proteção, crescimento, diversificação internacional, etc.).
-- Como encaixar na carteira de um investidor com foco em "${focoTexto}".
       `.trim();
     }
     // ============================
@@ -284,6 +264,7 @@ DADOS DO USUÁRIO:
 - Observação extra: ${obs}
 
 TABELA RÁPIDA (ANTES DO TEXTO):
+
 📊 TABELA RÁPIDA (Renda Fixa)
 - Tipo de título (Tesouro Selic, CDB pós, IPCA+, prefixado, etc.):
 - Taxa atual (ex: IPCA + 5,50% a.a.):
@@ -292,23 +273,20 @@ TABELA RÁPIDA (ANTES DO TEXTO):
 - Garantia (Tesouro Nacional, FGC, sem garantia, etc.):
 - Tributação (IR, IOF, isento, etc.):
 
-Se algum dado não estiver claro, use "N/D" em vez de "não encontrado" ou "data futura".
+Se algum dado não estiver claro, use "N/D".
 
 ESTRUTURA DA ANÁLISE:
 🔹 VISÃO GERAL DO TÍTULO
 🔹 COMO GANHA DINHEIRO (MECÂNICA)
-🔹 PRINCIPAIS RISCOS (marcação a mercado, crédito, liquidez, inflação)
+🔹 PRINCIPAIS RISCOS
 🔹 ADEQUAÇÃO AO PERFIL ${perfilUpper} COM FOCO EM "${focoTexto}"
 🔹 CONCLUSÃO E HORIZONTE DE TEMPO
-
-Seja didático, com frases curtas e foco em explicar prós e contras para o investidor.
       `.trim();
     }
     // ============================
     // 5) AÇÕES (DEFAULT)
     // ============================
     else {
-      // Trata como ação por padrão
       prompt = `
 Você é o InvestGram, IA especialista em ações brasileiras.
 
@@ -323,6 +301,7 @@ DADOS DO USUÁRIO:
 - Observação extra: ${obs}
 
 INSTRUÇÕES PARA DADOS NUMÉRICOS:
+
 1. Use a cotação e indicadores mais recentes que você conseguir para ${ativo}.
 2. Monte uma TABELA RÁPIDA logo no começo, nesse formato:
 
@@ -347,49 +326,43 @@ INSTRUÇÕES PARA DADOS NUMÉRICOS:
    Se os dados forem aproximados, apenas deixe claro que são estimativas.
 
 ESTRUTURA DA ANÁLISE (DEPOIS DA TABELA):
-Use seções com títulos claros e emojis discretos, por exemplo:
-
 🔹 VISÃO GERAL DA EMPRESA
-- O que a empresa faz, presença no Brasil/mundo, principais linhas de negócio.
-
 🔹 FUNDAMENTOS E INDICADORES
-- Comente brevemente os indicadores da tabela: P/L, P/VP, ROE, endividamento etc.
-
 🔹 DIVIDENDOS E GERAÇÃO DE CAIXA
-- Se a empresa costuma pagar bons dividendos, regularidade, payout, sustentabilidade.
-
-🔹 CRESCIMENTO E TESE DE INVESTIMENTO (QUANDO FIZER SENTIDO)
-- Motores de crescimento, investimentos, vantagens competitivas.
-
+🔹 CRESCIMENTO / TESE DE INVESTIMENTO
 🔹 RISCOS RELEVANTES
-- Riscos de setor, regulação, concorrência, política, dívida, governança.
-
 🔹 LEITURA PARA O PERFIL ${perfilUpper} COM FOCO EM "${focoTexto}"
-- Como um investidor ${perfilInvestidor} deve enxergar esse papel.
-- Se faz mais sentido para longo prazo, médio prazo etc.
-
 🔹 CONCLUSÃO FINAL
-- Resuma em poucos parágrafos quando a ação pode fazer sentido
-  e quais pontos o investidor deve acompanhar.
-
-Use linguagem simples, objetiva e profissional.
-Não seja prolixo demais para não estourar o limite de tokens.
       `.trim();
     }
 
-    // Chamada ao Gemini
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const texto = response.text();
+    // ============================
+    // STREAMING COM GEMINI
+    // ============================
+    const streamingResult = await model.generateContentStream(prompt);
+    const encoder = new TextEncoder();
 
-    return NextResponse.json(
-      {
-        sucesso: true,
-        // campo que o seu page.tsx está esperando:
-        resposta: texto,
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const chunk of streamingResult.stream) {
+            const text = chunk.text();
+            controller.enqueue(encoder.encode(text));
+          }
+          controller.close();
+        } catch (err) {
+          controller.error(err);
+        }
       },
-      { status: 200 }
-    );
+    });
+
+    // Resposta em TEXTO PURO (stream), não mais JSON
+    return new Response(stream, {
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain; charset=utf-8",
+      },
+    });
   } catch (err: any) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
