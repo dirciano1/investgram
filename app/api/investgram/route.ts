@@ -7,16 +7,18 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Nomes vindos do front (page.tsx)
     const {
-      tipoInvestimento, // "acoes" | "fii" | "etf" | "renda_fixa"
-      ativo,            // PETR4, HGLG11, IVVB11, Tesouro IPCA+
-      perfilInvestidor, // "conservador" | "moderado" | "agressivo"
-      focoAnalise,      // "dividendos" | "valorizacao" | "crescimento" | "renda_passiva"
-      dataAnalise,      // dd/mm/yyyy (texto)
-      observacao,       // opcional
+      tipoInvestimento,
+      ativo,
+      perfilInvestidor,
+      focoAnalise,
+      dataAnalise,
+      observacao,
     } = body;
 
+    // ================================
+    // 🔹 VALIDAÇÕES
+    // ================================
     if (!tipoInvestimento || !ativo || !perfilInvestidor || !focoAnalise || !dataAnalise) {
       return NextResponse.json(
         { error: "Campos obrigatórios faltando (tipo, ativo, perfil, foco, data)." },
@@ -24,10 +26,8 @@ export async function POST(req: Request) {
       );
     }
 
-    // Só pra ter algo em "objetivo" no prompt (já que tiramos do form)
     const objetivo = "não informado";
 
-    // --- checagem da chave ---
     if (!process.env.GEMINI_API_KEY) {
       console.error("Faltando GEMINI_API_KEY no ambiente.");
       return NextResponse.json(
@@ -37,104 +37,98 @@ export async function POST(req: Request) {
     }
 
     // ================================
-    // 🔹 GEMINI 2.5 FLASH
+    // 🔹 GOOGLE GEMINI
     // ================================
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
     });
 
     // ================================
-    // 🔹 PROMPT DA ANÁLISE
+    // 🔹 PROMPT FINAL, FECHADO CORRETAMENTE
     // ================================
-   const prompt = `
+    const prompt = `
+Você é o InvestGram, IA especialista em ativos brasileiros. Gere uma análise extremamente organizada, limpa e realista.
 
-Você é o InvestGram, IA especialista em ativos brasileiros. 
-Gere uma análise extremamente organizada, didática e limpa.
-
--------------------------
+==========================
 REGRAS GERAIS
--------------------------
+==========================
 - Nunca invente números absurdos.
-- Use valores aproximados e realistas.
+- Use valores aproximados e compatíveis com o mercado.
 - Dados desconhecidos devem ser: **N/D (Não disponível)** — nunca escreva “não encontrado”.
-- Toda resposta deve ser dividida em seções claras, com espaçamento.
+- Estruture a resposta com seções claras e bem espaçadas.
 - Use títulos com emojis simples.
-- Evite textos longos demais. Prefira blocos curtos.
-- SEMPRE inclua uma **Tabela Rápida** no início.
-- Nunca traga dados “futuros”. Sempre considere dados próximos da realidade atual.
-- Quando houver variações de mercado, use intervalos aproximados.
-- Contextualize a recomendação de acordo com o perfil: ${perfilInvestidor}.
-- Adapte a análise ao foco escolhido: ${focoAnalise}.
+- Respostas diretas, estilo relatório.
+- Inclua SEMPRE uma **Tabela Rápida**.
+- SEMPRE usar dados próximos da realidade atual (nunca dados futuros).
+- Recomende com base no perfil: **${perfilInvestidor}**.
+- Ajuste a análise ao foco: **${focoAnalise}**.
 
--------------------------
-DADOS PARA ANÁLISE
--------------------------
+==========================
+DADOS DA ANÁLISE
+==========================
 Tipo: ${tipoInvestimento}
 Ativo: ${ativo}
-Perfil do investidor: ${perfilInvestidor}
-Foco da análise: ${focoAnalise}
-Data da análise: ${dataAnalise}
-Observação extra: ${observacao || "Nenhuma"}
+Perfil: ${perfilInvestidor}
+Foco: ${focoAnalise}
+Data: ${dataAnalise}
+Objetivo: ${objetivo}
+Observação: ${observacao || "Nenhuma"}
 
--------------------------
-ESTRUTURA OBRIGATÓRIA DA RESPOSTA
--------------------------
+==========================
+ESTRUTURA OBRIGATÓRIA
+==========================
 
 📌 **1. Resumo do Ativo**
-Descreva rapidamente o que é, setor, tipo e como funciona.
+- Explique o que é o ativo.
+- Setor, funcionamento, natureza.
 
 📊 **2. Tabela Rápida (somente dados úteis)**
-Exemplo:
-- Preço atual aproximado: R$ XX,XX  
+Lista em texto, assim:
+- Preço aproximado: R$ XX,XX  
 - Dividend Yield 12m: XX%  
-- Dividendos pagos últimos 12m: R$ X,XX  
+- Dividendos últimos 12m: R$ X,XX  
 - P/L: XX  
 - P/VP: XX  
 - ROE: XX%  
-- Liquidez diária aproximada: R$ XX milhões  
-- Setor / Segmento: texto  
+- Liquidez diária: R$ XX milhões  
 - Vacância (se FII de tijolo): XX%  
-- Tipo de carteira (FII): papel, tijolo, híbrido  
-- Endividamento (ações): Dívida líquida / EBITDA  
-Sempre responder com números realistas ou N/D.
+- Tipo de carteira: papel / tijolo / híbrido  
+- Endividamento (ações): Dívida Líquida / EBITDA  
+Use números realistas ou **N/D**.
 
 📌 **3. Fundamentos**
-Explique os principais pontos:
 - Qualidade da gestão  
-- Crescimento de lucros/receitas  
-- Endividamento saudável ou não  
-- Dividendos (consistência)  
-- P/VP / P/L interpretados  
+- Histórico de lucro e crescimento  
+- Dividendos  
+- Valuation (P/L, P/VP)  
+- Endividamento  
 
-📈 **4. Análise Técnica Simplificada**
-Sem exagero:
-- Tendência geral  
-- Suporte e resistência aproximados  
+📈 **4. Análise Técnica (Simplificada)**
+- Tendência  
+- Suportes e resistências aproximados  
 - Volatilidade  
 - Sentimento do mercado  
 
 ⚠️ **5. Riscos**
-Mencione apenas os principais e de forma clara.
+Liste apenas riscos reais e relevantes.
 
 🎯 **6. Conclusão Personalizada**
-Recomendação baseada em:
+Baseada em:
 - Perfil: ${perfilInvestidor}
 - Foco: ${focoAnalise}
+- Dê uma recomendação clara e profissional.
+`;
 
-Frases curtas, diretas, estilo relatório profissional.
-
+    // ================================
+    // 🔹 CHAMADA AO GEMINI
+    // ================================
     const result = await model.generateContent(prompt);
     const response = await result.response;
     const texto = response.text();
 
-    // 👇 agora bate com o que o front espera: "resposta"
     return NextResponse.json(
-      {
-        sucesso: true,
-        resposta: texto,
-      },
+      { sucesso: true, resposta: texto },
       { status: 200 }
     );
   } catch (err) {
@@ -145,5 +139,3 @@ Frases curtas, diretas, estilo relatório profissional.
     );
   }
 }
-
-
