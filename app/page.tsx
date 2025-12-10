@@ -336,13 +336,16 @@ export default function InvestGramPage() {
 
       const data = await res.json();
 
-      setResultado(
-        // tenta ler primeiro o campo "analise" que combinamos no route
-        data.analise ||
-          data.resposta ||
-          data.resultado ||
-          "Análise gerada, mas não consegui ler o campo de resposta."
-      );
+      const reader = res.body.getReader();
+let text = "";
+
+while (true) {
+  const { value, done } = await reader.read();
+  if (done) break;
+  text += new TextDecoder().decode(value);
+}
+
+setResultado(text);
       setPanelFlip(true); // mostra painel de resultado
     } catch (err) {
       console.error(err);
@@ -722,3 +725,4 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
