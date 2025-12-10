@@ -336,16 +336,25 @@ export default function InvestGramPage() {
 
       const data = await res.json();
 
-      const reader = res.body.getReader();
+      // --- STREAM SEGURO (resolvendo erro do TS) ---
+const body = res.body;
+
+if (!body) {
+  throw new Error("Resposta vazia da API (res.body = null).");
+}
+
+const reader = body.getReader();
 let text = "";
+const decoder = new TextDecoder();
 
 while (true) {
   const { value, done } = await reader.read();
   if (done) break;
-  text += new TextDecoder().decode(value);
+  text += decoder.decode(value, { stream: true });
 }
 
 setResultado(text);
+
       setPanelFlip(true); // mostra painel de resultado
     } catch (err) {
       console.error(err);
@@ -725,4 +734,5 @@ setResultado(text);
     </main>
   );
 }
+
 
