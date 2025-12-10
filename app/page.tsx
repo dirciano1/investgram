@@ -2,20 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 
-type TipoInvestimento = "acoes" | "fii" | "etf" | "renda_fixa";
+type TipoInvestimento =
+  | "acoes"
+  | "fii"
+  | "etf"
+  | "renda_fixa"
+  | "carteira_balanceada";
+
 type PerfilInvestidor = "conservador" | "moderado" | "agressivo";
-type FocoAnalise =
-  | "dividendos"
-  | "valorizacao"
-  | "crescimento"
-  | "renda_passiva";
+type FocoAnalise = "dividendos" | "valorizacao" | "crescimento" | "renda_passiva";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "7px 12px",
+  padding: "6px 12px",
   borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(17,24,39,0.9)",
+  border: "1px solid rgba(255,255,255,0.15)",
+  background: "rgba(17,24,39,0.8)",
   color: "#fff",
   marginBottom: "8px",
   outline: "none",
@@ -34,7 +36,7 @@ const selectStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = {
   display: "block",
   marginBottom: "3px",
-  fontSize: "0.84rem",
+  fontSize: "0.82rem",
   color: "#e5e7eb",
 };
 
@@ -55,7 +57,7 @@ const modalContentStyle: React.CSSProperties = {
   background: "#111827",
   border: "2px solid #22c55e",
   borderRadius: "16px",
-  padding: "22px 20px",
+  padding: "24px 22px",
   width: "90%",
   maxWidth: "420px",
   textAlign: "left",
@@ -68,7 +70,7 @@ const buttonPrimaryStyle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 700,
   borderRadius: "10px",
-  padding: "9px 16px",
+  padding: "10px 18px",
   cursor: "pointer",
   fontSize: "0.9rem",
 };
@@ -79,9 +81,9 @@ const buttonSecondaryStyle: React.CSSProperties = {
   color: "#e5e7eb",
   fontWeight: 500,
   borderRadius: "10px",
-  padding: "9px 16px",
+  padding: "10px 18px",
   cursor: "pointer",
-  fontSize: "0.88rem",
+  fontSize: "0.85rem",
 };
 
 interface PerfilModalProps {
@@ -135,7 +137,7 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
         <p
           style={{
             color: "#9ca3af",
-            fontSize: "0.86rem",
+            fontSize: "0.82rem",
             marginBottom: "12px",
             lineHeight: 1.4,
           }}
@@ -281,7 +283,7 @@ export default function InvestGramPage() {
     const intervalo = setInterval(() => {
       i = (i + 1) % frases.length;
       setCarregandoFrase(frases[i]);
-    }, 4000);
+    }, 3500);
 
     return () => clearInterval(intervalo);
   }, [carregando]);
@@ -289,7 +291,7 @@ export default function InvestGramPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (!ativo.trim()) {
+    if (tipoInvestimento !== "carteira_balanceada" && !ativo.trim()) {
       alert("⚠️ Informe o código ou nome do ativo.");
       return;
     }
@@ -310,13 +312,13 @@ export default function InvestGramPage() {
     setResultado("");
 
     try {
-      // Corpo esperado pela rota /api/investgram
+      // Corpo compatível com o route.ts
       const body = {
         tipo: tipoInvestimento,
         ativo,
         perfil: perfilInvestidor,
         foco: focoAnalise,
-        objetivo: "crescimento", // objetivo padrão para simplificar
+        objetivo: "medio_prazo", // pode virar um campo depois
         data: dataAnalise,
         observacao,
       };
@@ -333,7 +335,6 @@ export default function InvestGramPage() {
 
       const data = await res.json();
 
-      // agora lê o campo correto que o route.ts devolve: "analise"
       setResultado(
         data.analise ||
           data.resposta ||
@@ -373,21 +374,21 @@ export default function InvestGramPage() {
         alignItems: "center",
       }}
     >
-      {/* H1 SEO escondido */}
+      {/* H1 para SEO escondido */}
       <h1 style={{ position: "absolute", left: "-9999px", top: 0 }}>
         InvestGram - Analisador de Investimentos com Inteligência Artificial
       </h1>
 
-      {/* Título visual estilo BetGram */}
+      {/* Título visual no estilo BetGram */}
       <h2
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           justifyContent: "center",
-          fontSize: "1.6rem",
-          marginTop: "22px",
-          marginBottom: "16px",
+          fontSize: "1.55rem",
+          marginTop: "18px",
+          marginBottom: "12px",
         }}
       >
         <img
@@ -409,44 +410,28 @@ export default function InvestGramPage() {
           border: "1px solid rgba(34,197,94,0.25)",
           borderRadius: "16px",
           boxShadow: "0 0 25px rgba(34,197,94,0.08)",
-          padding: "14px 12px 16px",
+          padding: "14px 14px 16px",
           backdropFilter: "blur(8px)",
         }}
       >
-        {/* Cabeçalho simples */}
+        {/* Cabeçalho simples (sem login / créditos) */}
         <div style={{ marginBottom: "14px" }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              gap: "10px",
+              gap: "8px",
               alignItems: "center",
               flexWrap: "wrap",
             }}
           >
-            <div style={{ fontSize: "0.98rem" }}>
+            <div style={{ fontSize: "0.96rem" }}>
               👋 <b>Bem-vindo ao InvestGram</b>
-              <div style={{ color: "#9ca3af", fontSize: "0.84rem" }}>
-                Preencha os dados do ativo e receba uma análise inteligente,
-                alinhada ao seu perfil.
+              <div style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
+                Preencha os dados e receba uma análise alinhada ao seu perfil.
               </div>
             </div>
-            <div
-              style={{
-                padding: "5px 10px",
-                borderRadius: "999px",
-                border: "1px solid rgba(34,197,94,0.4)",
-                background: "rgba(15,23,42,0.9)",
-                fontSize: "0.78rem",
-                color: "#bbf7d0",
-                whiteSpace: "nowrap",
-              }}
-            >
-              🧠 IA focada em{" "}
-              <span style={{ color: "#22c55e", fontWeight: 600 }}>
-                investimentos
-              </span>
-            </div>
+            {/* removido o badge "IA focada em investimentos" */}
           </div>
         </div>
 
@@ -456,7 +441,7 @@ export default function InvestGramPage() {
           <div
             style={{
               display: "flex",
-              gap: "10px",
+              gap: "8px",
               marginBottom: "8px",
               flexWrap: "wrap",
             }}
@@ -474,6 +459,9 @@ export default function InvestGramPage() {
                 <option value="fii">🏢 Fundos Imobiliários (FII)</option>
                 <option value="etf">📊 ETFs</option>
                 <option value="renda_fixa">💵 Renda Fixa</option>
+                <option value="carteira_balanceada">
+                  📊 Montar carteira balanceada
+                </option>
               </select>
             </div>
 
@@ -493,29 +481,31 @@ export default function InvestGramPage() {
             </div>
           </div>
 
-          {/* Ativo */}
-          <div style={{ marginBottom: "8px" }}>
-            <label style={labelStyle}>💼 Ativo (código ou nome):</label>
-            <input
-              type="text"
-              placeholder="Ex: PETR4, HGLG11, IVVB11, Tesouro IPCA+"
-              value={ativo}
-              onChange={(e) => setAtivo(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
+          {/* Ativo – só mostra se NÃO for carteira balanceada */}
+          {tipoInvestimento !== "carteira_balanceada" && (
+            <div style={{ marginBottom: "6px" }}>
+              <label style={labelStyle}>💼 Ativo (código ou nome):</label>
+              <input
+                type="text"
+                placeholder="Ex: PETR4, HGLG11, IVVB11, Tesouro IPCA+"
+                value={ativo}
+                onChange={(e) => setAtivo(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          )}
 
           {/* Perfil + botão descobrir */}
           <div
             style={{
               display: "flex",
-              gap: "10px",
+              gap: "8px",
               flexWrap: "wrap",
-              marginBottom: "8px",
+              marginBottom: "6px",
             }}
           >
             <div style={{ flex: 1, minWidth: "180px" }}>
-              <label style={labelStyle}>🧬 Perfil do investidor:</label>
+              <label style={labelStyle}>🧬 Perfil do investidor (obrigatório):</label>
               <select
                 value={perfilInvestidor}
                 onChange={(e) =>
@@ -544,13 +534,13 @@ export default function InvestGramPage() {
                   width: "100%",
                   borderColor: "#22c55e55",
                   color: "#22c55e",
-                  background: "rgba(22,163,74,0.1)",
+                  background: "rgba(22,163,74,0.08)",
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
                   gap: "6px",
-                  fontSize: "0.84rem",
                   padding: "8px 12px",
+                  fontSize: "0.8rem",
                 }}
                 onClick={() => setShowPerfilModal(true)}
               >
@@ -565,20 +555,19 @@ export default function InvestGramPage() {
                 background: "rgba(15,23,42,0.95)",
                 borderRadius: "10px",
                 border: "1px solid rgba(148,163,184,0.4)",
-                padding: "6px 9px",
-                fontSize: "0.78rem",
+                padding: "6px 8px",
+                fontSize: "0.76rem",
                 color: "#9ca3af",
-                marginBottom: "8px",
+                marginBottom: "6px",
               }}
             >
               <b style={{ color: "#22c55e" }}>Perfil selecionado:</b>{" "}
-              {perfilInvestidor.toUpperCase()} —{" "}
-              {descricaoPerfil(perfilInvestidor)}
+              {perfilInvestidor.toUpperCase()} — {descricaoPerfil(perfilInvestidor)}
             </div>
           )}
 
-          {/* Foco da análise - obrigatório (mantido, só sem o card grande) */}
-          <div style={{ marginBottom: "8px" }}>
+          {/* Foco da análise - obrigatório (sem o card explicativo) */}
+          <div style={{ marginBottom: "6px" }}>
             <label style={labelStyle}>🎯 Foco da análise (obrigatório):</label>
             <select
               value={focoAnalise}
@@ -596,24 +585,28 @@ export default function InvestGramPage() {
           </div>
 
           {/* Observação opcional */}
-          <div style={{ marginBottom: "8px" }}>
+          <div style={{ marginBottom: "6px" }}>
             <label style={labelStyle}>
               📝 Observação (opcional – contexto extra, se quiser):
             </label>
             <textarea
               rows={3}
-              placeholder="Ex: Quero análise completa do ativo / montar posição / comparar com outro, etc."
+              placeholder={
+                tipoInvestimento === "carteira_balanceada"
+                  ? "Ex: Quero uma carteira balanceada para longo prazo, com foco em crescimento mas sem abrir mão de alguma renda passiva."
+                  : "Ex: Quero comparar esse ativo com outro da mesma categoria, já tenho posição nele, etc."
+              }
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               style={{
                 ...inputStyle,
                 resize: "vertical",
-                minHeight: "64px",
+                minHeight: "60px",
               }}
             />
           </div>
 
-          {/* Botão Analisar – estilo BetGram */}
+          {/* Botão Analisar */}
           <button
             type="submit"
             disabled={carregando}
@@ -642,13 +635,13 @@ export default function InvestGramPage() {
           </button>
         </form>
 
-        {/* Resultado – painel scrollável estilo BetGram */}
+        {/* Resultado */}
         {resultado && (
-          <div style={{ marginTop: "16px" }}>
+          <div style={{ marginTop: "14px" }}>
             <h3
               style={{
                 color: "#22c55e",
-                fontSize: "0.98rem",
+                fontSize: "0.96rem",
                 marginBottom: "6px",
               }}
             >
@@ -660,14 +653,14 @@ export default function InvestGramPage() {
                 border: "1px solid rgba(34,197,94,0.25)",
                 borderRadius: "10px",
                 padding: "10px",
-                maxHeight: "340px",
+                maxHeight: "320px",
                 overflowY: "auto",
-                fontSize: "0.92rem",
+                fontSize: "0.9rem",
                 lineHeight: 1.5,
                 color: "#e5e7eb",
               }}
             >
-              {resultado.split("\n").map((linha: string, i: number) => (
+              {resultado.split("\n").map((linha, i) => (
                 <p key={i} style={{ marginBottom: "4px" }}>
                   {linha}
                 </p>
