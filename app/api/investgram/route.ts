@@ -7,17 +7,24 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
+    // 👇 nomes IGUAIS ao que o page.tsx está enviando
     const {
-      tipo,        // ações, fii, etf, renda_fixa
-      ativo,       // PETR4, HGLG11, IVVB11, Tesouro IPCA
-      perfil,      // conservador, moderado, agressivo
-      foco,        // dividendos, crescimento, curto prazo, etc.
-      objetivo,    // curto, medio, longo
-      data,        // dd/mm/yyyy
-      observacao   // texto opcional
+      tipoInvestimento,
+      ativo,
+      perfilInvestidor,
+      focoAnalise,
+      dataAnalise,
+      observacao,
     } = body;
 
-    if (!tipo || !ativo || !perfil || !foco || !objetivo) {
+    // validação básica
+    if (
+      !tipoInvestimento ||
+      !ativo ||
+      !perfilInvestidor ||
+      !focoAnalise ||
+      !dataAnalise
+    ) {
       return NextResponse.json(
         { error: "Campos obrigatórios faltando." },
         { status: 400 }
@@ -25,16 +32,25 @@ export async function POST(req: Request) {
     }
 
     // ================================
-    // 🔹 G E M I N I   2.5   F L A S H
+    // 🔹 G E M I N I  2.5  F L A S H
     // ================================
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.error("GEMINI_API_KEY não configurada");
+      return NextResponse.json(
+        { error: "GEMINI_API_KEY não configurada no servidor." },
+        { status: 500 }
+      );
+    }
+
+    const genAI = new GoogleGenerativeAI(apiKey);
 
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash"
+      model: "gemini-2.5-flash",
     });
 
     // ================================
-    // 🔹 P R O M P T   D A   A N Á L I S E
+    // 🔹 P R O M P T  D A  A N Á L I S E
     // ================================
     const prompt = `
 Você é o InvestGram, IA especialista em análise de investimentos.
@@ -45,23 +61,22 @@ Analise o ativo abaixo com profundidade, trazendo:
 - Indicadores como DY, P/L, P/VP, ROE, dívida, crescimento
 - Indicadores técnicos (RSI, MACD, tendência)
 - Interpretação com base no foco do investidor
-- Riscos
-- Recomendação final baseada no perfil (${perfil})
+- Principais riscos
+- Recomendação final baseada no perfil (${perfilInvestidor})
 - Estrutura bem organizada em seções
 
 DADOS DO USUÁRIO:
-- Tipo de investimento: ${tipo}
+- Tipo de investimento: ${tipoInvestimento}
 - Ativo: ${ativo}
-- Perfil do investidor: ${perfil}
-- Foco: ${foco}
-- Objetivo: ${objetivo}
-- Data da análise: ${data}
+- Perfil do investidor: ${perfilInvestidor}
+- Foco da análise: ${focoAnalise}
+- Data da análise: ${dataAnalise}
 - Observação extra: ${observacao || "nenhuma"}
 
 IMPORTANTE:
 - Seja direto, claro e completo
-- Se o ativo possuir indicadores específicos (como vacância no FII), traga
-- Não invente valores absurdamente imprecisos
+- Se o ativo possuir indicadores específicos (ex.: vacância em FII), traga
+- Não invente valores absurdos
 - Gere uma análise no estilo profissional InvestGram
     `;
 
@@ -69,15 +84,15 @@ IMPORTANTE:
     const response = await result.response;
     const texto = response.text();
 
+    // 👇 aqui mando no campo "resposta" que seu page.tsx já espera
     return NextResponse.json(
       {
         sucesso: true,
-        analise: texto
+        resposta: texto,
       },
       { status: 200 }
     );
-
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
       { error: "Erro interno na API do InvestGram" },
