@@ -1,4 +1,3 @@
-// app/api/investgram/route.ts
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
@@ -19,45 +18,42 @@ export async function POST(req: Request) {
 
     if (!tipoInvestimento || !ativo || !perfilInvestidor || !focoAnalise || !dataAnalise) {
       return NextResponse.json(
-        { error: "Campos obrigatórios faltando (tipo, ativo, perfil, foco, data)." },
+        { error: "Campos obrigatórios faltando." },
         { status: 400 }
       );
     }
 
     if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY não configurada!");
       return NextResponse.json(
-        { error: "GEMINI_API_KEY não configurada." },
+        { error: "GEMINI_API_KEY ausente." },
         { status: 500 }
       );
     }
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-    });
-
-    // ============================
-    // PROMPT CORRIGIDO + FECHADO
-    // ============================
+    // PROMPT OTIMIZADO (SEM QUEBRAR FORMATAÇÃO)
     const prompt = `
-Você é o **InvestGram**, IA especialista em análises de ativos brasileiros.
+Você é o InvestGram, IA especialista em ativos brasileiros.
 
-Siga estas regras:
-
+=========================
+REGRAS
+=========================
 - Nunca invente números irreais.
-- Use valores aproximados e realistas.
-- Dados desconhecidos → "N/D".
-- Estruture a resposta em seções claras.
+- Use apenas valores aproximados plausíveis.
+- Sempre que não souber um dado escreva: **N/D**.
+- Organize tudo em seções claras.
 - Use títulos com emojis simples.
-- Sempre inclua uma **Tabela Rápida**.
-- Não use textos gigantes; prefira blocos curtos.
-- Adapte a análise ao perfil **${perfilInvestidor}**.
-- Adapte a recomendação ao foco **${focoAnalise}**.
+- Nunca retorne texto grudado. Sempre use quebras de linha duplas.
+- Adapte a recomendação para o perfil: ${perfilInvestidor}.
+- Ajuste a análise ao foco: ${focoAnalise}.
+- Não traga dados futuros. Apenas referências aproximadas reais.
 
--------------------------
-DADOS PARA ANÁLISE
--------------------------
+=========================
+DADOS DO USUÁRIO
+=========================
 Tipo: ${tipoInvestimento}
 Ativo: ${ativo}
 Perfil: ${perfilInvestidor}
@@ -65,12 +61,12 @@ Foco: ${focoAnalise}
 Data da análise: ${dataAnalise}
 Observação: ${observacao || "Nenhuma"}
 
--------------------------
-ESTRUTURA OBRIGATÓRIA
--------------------------
+=========================
+ESTRUTURA DA RESPOSTA
+=========================
 
 📌 **1. Resumo do Ativo**
-Descrição curta e objetiva.
+Texto curto sobre o que é, setor e características principais.
 
 📊 **2. Tabela Rápida**
 - Preço aproximado
@@ -79,53 +75,50 @@ Descrição curta e objetiva.
 - P/L
 - P/VP
 - ROE
-- Liquidez diária
+- Liquidez
 - Setor
-- Vacância (se FII de tijolo)
+- Vacância (se FII tijolo)
 - Tipo de carteira (FII)
-- Endividamento (ações)
+- Dívida líquida / EBITDA (ações)
+Todos os números devem ser realistas ou N/D.
 
-📌 **3. Fundamentos**
-Interprete os principais indicadores.
+📈 **3. Fundamentos**
+- Gestão
+- Crescimento de resultados
+- Endividamento
+- Consistência de dividendos
+- Interpretação de múltiplos (P/L, P/VP etc.)
 
-📈 **4. Análise Técnica Simplificada**
-Tendência, suportes, resistências, volatilidade.
+📉 **4. Análise Técnica Simplificada**
+- Tendência
+- Suportes/resistências
+- Volatilidade
 
 ⚠️ **5. Riscos**
-Somente os relevantes.
+Citar somente riscos relevantes do ativo.
 
 🎯 **6. Conclusão Personalizada**
-Baseada no perfil: ${perfilInvestidor}
-Baseada no foco: ${focoAnalise}
+Recomendação alinhada ao perfil e foco do usuário.
 
-Texto limpo, direto e profissional.
-`;
+Retorne tudo bem formatado com quebras de linha.
+    `;
 
-    // ====================================
-    // STREAM – igual o TalkGram (perfeito)
-    // ====================================
-    const result = await model.generateContentStream(prompt);
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    const texto = response.text();
 
-    const stream = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          controller.enqueue(text);
-        }
-        controller.close();
+    return NextResponse.json(
+      {
+        sucesso: true,
+        resposta: texto,
       },
-    });
-
-    return new Response(stream, {
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-      },
-    });
+      { status: 200 }
+    );
 
   } catch (err) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
-      { error: "Erro interno no InvestGram" },
+      { error: "Erro interno na API do InvestGram." },
       { status: 500 }
     );
   }
