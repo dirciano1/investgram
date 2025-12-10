@@ -334,34 +334,25 @@ export default function InvestGramPage() {
         throw new Error("Erro na API do InvestGram");
       }
 
-      const data = await res.json();
-
-      // --- STREAM SEGURO (resolvendo erro do TS) ---
-const body = res.body;
-
-if (!body) {
-  throw new Error("Resposta vazia da API (res.body = null).");
+      // NÃO use res.json() — streaming quebra se usar isso
+if (!res.body) {
+  throw new Error("Resposta vazia da API");
 }
 
-const reader = body.getReader();
-let text = "";
+const reader = res.body.getReader();
 const decoder = new TextDecoder();
+let text = "";
 
 while (true) {
   const { value, done } = await reader.read();
   if (done) break;
+
   text += decoder.decode(value, { stream: true });
 }
 
 setResultado(text);
+setPanelFlip(true);
 
-      setPanelFlip(true); // mostra painel de resultado
-    } catch (err) {
-      console.error(err);
-      setResultado(
-        "❌ Ocorreu um erro ao gerar a análise. Verifique a API /api/investgram e tente novamente."
-      );
-      setPanelFlip(true);
     } finally {
       setCarregando(false);
     }
@@ -734,5 +725,6 @@ setResultado(text);
     </main>
   );
 }
+
 
 
