@@ -2,140 +2,177 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export const runtime = "edge";
-
-const GEMINI_KEY = process.env.GEMINI_API_KEY;
-
-if (!GEMINI_KEY) {
-  // Isso aparece só no log da Vercel
-  console.error("⚠️ GEMINI_API_KEY não configurada nas variáveis de ambiente.");
-}
+// usa Node (mais tempo que Edge)
+export const runtime = "nodejs";
+// até 60s na Vercel
+export const maxDuration = 60;
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
 
     const {
-      tipoInvestimento,   // "acoes" | "fii" | "etf" | "renda_fixa" | "carteira_balanceada"
-      ativo,              // PETR4, HGLG11, etc (não obrigatório p/ carteira_balanceada)
-      dataAnalise,        // "10/12/2025"
-      perfilInvestidor,   // "conservador" | "moderado" | "agressivo"
-      focoAnalise,        // "dividendos" | "crescimento" | etc (opcional)
-      observacao,         // texto extra opcional
+      tipoInvestimento, // "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira"
+      ativo,            // PETR4, HGLG11, IVVB11, Tesouro IPCA etc. (obrigatório p/ análise de ativo)
+      dataAnalise,      // "10/12/2025"
+      perfilInvestidor, // "conservador" | "moderado" | "agressivo"
+      focoAnalise,      // "dividendos", "crescimento", etc.
+      observacao,       // texto opcional
     } = body;
 
-    if (!tipoInvestimento || !perfilInvestidor || !dataAnalise) {
+    if (!tipoInvestimento || !perfilInvestidor || !focoAnalise) {
       return NextResponse.json(
-        { error: "tipoInvestimento, perfilInvestidor e dataAnalise são obrigatórios." },
+        { error: "Campos obrigatórios faltando." },
         { status: 400 }
       );
     }
 
-    // Para qualquer coisa que NÃO seja "montar carteira", ativo é obrigatório
-    if (tipoInvestimento !== "carteira_balanceada" && !ativo) {
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY não configurada na Vercel");
       return NextResponse.json(
-        { error: "O campo 'ativo' é obrigatório para esse tipo de investimento." },
-        { status: 400 }
-      );
-    }
-
-    if (!GEMINI_KEY) {
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY não configurada no servidor." },
+        { error: "Configuração da API ausente." },
         { status: 500 }
       );
     }
 
-    const genAI = new GoogleGenerativeAI(GEMINI_KEY);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      generationConfig: {
+        maxOutputTokens: 1800, // segura o tamanho pra não demorar demais
+        temperature: 0.7,
+      },
+    });
 
-    let prompt: string;
+    const data = dataAnalise || "data não informada";
+    const obs = observacao && observacao.trim().length > 0 ? observacao : "nenhuma";
+
+    let prompt = "";
 
     // ==========================
-    // CASO 1: MONTAR CARTEIRA
+    // 1) MONTAR CARTEIRA
     // ==========================
-    if (tipoInvestimento === "carteira_balanceada") {
+    if (tipoInvestimento === "montar_carteira") {
       prompt = `
-Você é o InvestGram, IA especialista em alocação de carteira.
+Você é o InvestGram, uma IA especialista em montagem de carteira de investimentos
+para investidores brasileiros.
 
-Monte uma CARTEIRA BALANCEADA em porcentagem (%) do capital total,
-considerando:
+O usuário quer MONTAR UMA CARTEIRA BALANCEADA.
 
+DADOS:
 - Perfil do investidor: ${perfilInvestidor}
-- Foco da análise: ${focoAnalise || "equilíbrio entre risco e retorno"}
-- Data da análise: ${dataAnalise}
-- Contexto extra do usuário: ${observacao || "nenhum"}
+- Foco principal: ${focoAnalise}
+- Data da análise: ${data}
+- Observações do usuário: ${obs}
 
-Regras da resposta:
-1. Divida em GRANDES CLASSES de ativos, por exemplo:
-   - Renda fixa (pós, prefixado, IPCA)
+TAREFA:
+Monte uma carteira balanceada e bem explicada, seguindo estas regras:
+
+1) Comece com um pequeno RESUMO da estratégia geral da carteira para esse perfil.
+
+2) Traga uma seção "Distribuição por classe de ativos", com porcentagens somando 100%.
+   Use classes como (ajuste conforme o perfil):
+   - Renda Fixa (Tesouro, CDB, etc.)
    - Ações Brasil
-   - FIIs (fundos imobiliários)
-   - ETFs (Brasil e/ou exterior)
-   - Caixa / reserva de oportunidade
-2. Para cada classe:
-   - Informe a porcentagem ideal (%)
-   - Explique a lógica dessa classe para o perfil ${perfilInvestidor}
-   - Sugira 2 ou 3 exemplos de ativos / tipos, sem tratar como recomendação definitiva.
-3. Mostre:
-   - Versão resumida da carteira em forma de tabela ou lista organizada
-   - Possíveis ajustes caso o investidor queira mais segurança ou mais risco
-4. Termine com um lembrete claro:
-   - É uma análise educacional, não uma recomendação formal de investimento.
+   - Fundos Imobiliários (FIIs)
+   - ETFs
+   - Exterior (ETFs ou BDRs, se fizer sentido)
+   - Caixa / Reserva de oportunidade
+
+3) Para cada classe, traga de 2 a 6 SUGESTÕES de ativos ou tipos de ativos
+   (exemplos: "Tesouro IPCA+ 2035", "FII de logística", "ETF de S&P500", etc.),
+   sempre deixando claro que são exemplos educacionais.
+
+4) Diferencie bem por perfil:
+   - CONSERVADOR: mais renda fixa, baixa volatilidade e foco em proteção.
+   - MODERADO: equilíbrio entre renda fixa e renda variável.
+   - AGRESSIVO: maior peso em ações, FIIs e exterior, aceitando volatilidade.
+
+5) Inclua uma seção "Riscos e cuidados" explicando os principais riscos
+   da carteira proposta para esse perfil.
+
+6) Finalize com "Como usar essa carteira na prática", com dicas de:
+   - Aportes mensais
+   - Rebalanceamento periódico
+   - Importância de não concentrar tudo em um único ativo.
+
+NÃO prometa retorno garantido.
+Responda em português do Brasil, de forma didática e direta.
 `;
     }
 
     // ==========================
-    // CASO 2: ANALISAR UM ATIVO
+    // 2) ANÁLISE DE UM ÚNICO ATIVO
     // ==========================
     else {
+      if (!ativo || String(ativo).trim().length === 0) {
+        return NextResponse.json(
+          { error: "Campo 'ativo' é obrigatório para análise de ativo." },
+          { status: 400 }
+        );
+      }
+
       prompt = `
-Você é o InvestGram, IA especialista em análise de investimentos.
+Você é o InvestGram, IA especialista em análise de investimentos para o mercado brasileiro.
 
-Analise o ativo abaixo com profundidade, gerando uma análise clara, organizada
-e profissional, em português do Brasil.
+Analise o ativo abaixo com profundidade, trazendo:
 
-DADOS:
+1) VISÃO GERAL
+   - O que é o ativo (ação, FII, ETF, renda fixa, etc.).
+   - Segmento/setor principal.
+   - Tipo de estratégia que ele costuma compor na carteira.
+
+2) FUNDAMENTOS (EM ALTO NÍVEL, sem inventar números exatos)
+   - Pontos fortes do negócio/ativo.
+   - Pontos fracos e riscos (políticos, setoriais, crédito, vacância, etc.).
+   - Como esse ativo costuma se comportar em diferentes cenários econômicos.
+
+3) ANÁLISE ALINHADA AO PERFIL "${perfilInvestidor.toUpperCase()}"
+   - Por que esse ativo pode ou não fazer sentido para esse perfil.
+   - Nível de volatilidade esperado.
+   - Papel do ativo dentro de uma carteira desse perfil.
+
+4) FOCO DA ANÁLISE: ${focoAnalise}
+   - Se foco for "dividendos" ou "renda_passiva", comente sobre geração de fluxo de caixa.
+   - Se foco for "crescimento" ou "valorizacao", comente sobre potencial de crescimento do ativo.
+   - Sempre deixe claro que são avaliações gerais, não promessa.
+
+5) QUANDO PODE FAZER SENTIDO TER ESSE ATIVO
+   - Situações de mercado em que tende a performar melhor.
+   - Situações em que pode sofrer mais.
+
+6) CONCLUSÃO DO INVESTGRAM
+   - De forma simples, diga se esse ativo "pode fazer sentido considerar"
+     para o perfil e foco informados, reforçando que é apenas uma análise educativa.
+
+DADOS INFORMADOS PELO USUÁRIO:
 - Tipo de investimento: ${tipoInvestimento}
 - Ativo: ${ativo}
 - Perfil do investidor: ${perfilInvestidor}
-- Foco da análise: ${focoAnalise || "análise completa do ativo"}
-- Data da análise: ${dataAnalise}
-- Observação extra do usuário: ${observacao || "nenhuma"}
+- Foco da análise: ${focoAnalise}
+- Data da análise: ${data}
+- Observação extra: ${obs}
 
-Na resposta, siga esta estrutura:
-
-1. Visão geral do ativo
-2. Principais pontos fundamentais (sem inventar números absurdos)
-3. Pontos fortes
-4. Principais riscos
-5. Como esse ativo se encaixa no perfil ${perfilInvestidor}
-6. Interpretação específica com foco em: ${focoAnalise || "análise geral"}
-7. Conclusão final:
-   - Compra, manter, observar, reduzir exposição, etc. (sempre com justificativa)
-8. Aviso final:
-   - Lembrar que é uma análise educacional e não substitui consultoria profissional.
+Responda em português do Brasil, com texto bem organizado em seções.
+Evite linguagem de recomendação formal (não use "compre", "venda", etc.).
 `;
     }
 
     const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const texto = response.text();
+    const resp = await result.response;
+    const texto = resp.text();
 
     return NextResponse.json(
       {
         sucesso: true,
-        analise: texto,
+        resposta: texto,
       },
       { status: 200 }
     );
-  } catch (err: any) {
+  } catch (err) {
     console.error("Erro InvestGram API:", err);
     return NextResponse.json(
-      {
-        error: "Erro interno na API do InvestGram.",
-        detalhe: err?.message || "Sem mensagem detalhada.",
-      },
+      { error: "Erro interno na API do InvestGram." },
       { status: 500 }
     );
   }
