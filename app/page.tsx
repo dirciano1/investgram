@@ -7,22 +7,23 @@ type TipoInvestimento =
   | "fii"
   | "etf"
   | "renda_fixa"
-  | "carteira_balanceada";
+  | "montar_carteira";
 
 type PerfilInvestidor = "conservador" | "moderado" | "agressivo";
+
 type FocoAnalise = "dividendos" | "valorizacao" | "crescimento" | "renda_passiva";
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
-  padding: "6px 12px",
+  padding: "7px 12px",
   borderRadius: "10px",
-  border: "1px solid rgba(255,255,255,0.15)",
-  background: "rgba(17,24,39,0.8)",
+  border: "1px solid rgba(255,255,255,0.14)",
+  background: "rgba(17,24,39,0.9)",
   color: "#fff",
-  marginBottom: "8px",
+  marginBottom: "10px",
   outline: "none",
   transition: "0.2s",
-  fontSize: "0.9rem",
+  fontSize: "0.95rem",
 };
 
 const selectStyle: React.CSSProperties = {
@@ -40,12 +41,15 @@ const labelStyle: React.CSSProperties = {
   color: "#e5e7eb",
 };
 
+interface PerfilModalProps {
+  open: boolean;
+  onClose: () => void;
+  onResultado: (perfil: PerfilInvestidor) => void;
+}
+
 const modalBackdropStyle: React.CSSProperties = {
   position: "fixed",
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
+  inset: 0,
   background: "rgba(0, 0, 0, 0.7)",
   display: "flex",
   justifyContent: "center",
@@ -57,7 +61,7 @@ const modalContentStyle: React.CSSProperties = {
   background: "#111827",
   border: "2px solid #22c55e",
   borderRadius: "16px",
-  padding: "24px 22px",
+  padding: "22px 20px",
   width: "90%",
   maxWidth: "420px",
   textAlign: "left",
@@ -70,9 +74,9 @@ const buttonPrimaryStyle: React.CSSProperties = {
   color: "#fff",
   fontWeight: 700,
   borderRadius: "10px",
-  padding: "10px 18px",
+  padding: "9px 16px",
   cursor: "pointer",
-  fontSize: "0.9rem",
+  fontSize: "0.92rem",
 };
 
 const buttonSecondaryStyle: React.CSSProperties = {
@@ -81,23 +85,17 @@ const buttonSecondaryStyle: React.CSSProperties = {
   color: "#e5e7eb",
   fontWeight: 500,
   borderRadius: "10px",
-  padding: "10px 18px",
+  padding: "9px 16px",
   cursor: "pointer",
-  fontSize: "0.85rem",
+  fontSize: "0.88rem",
 };
 
-interface PerfilModalProps {
-  open: boolean;
-  onClose: () => void;
-  onResultado: (perfil: PerfilInvestidor) => void;
-}
-
 function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
-  const [p1, setP1] = useState<string>("");
-  const [p2, setP2] = useState<string>("");
-  const [p3, setP3] = useState<string>("");
-  const [p4, setP4] = useState<string>("");
-  const [p5, setP5] = useState<string>("");
+  const [p1, setP1] = useState("");
+  const [p2, setP2] = useState("");
+  const [p3, setP3] = useState("");
+  const [p4, setP4] = useState("");
+  const [p5, setP5] = useState("");
 
   if (!open) return null;
 
@@ -137,7 +135,7 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
         <p
           style={{
             color: "#9ca3af",
-            fontSize: "0.82rem",
+            fontSize: "0.88rem",
             marginBottom: "12px",
             lineHeight: 1.4,
           }}
@@ -146,7 +144,7 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
           automaticamente seu perfil.
         </p>
 
-        {/* Pergunta 1 */}
+        {/* Perguntas */}
         <div style={{ marginBottom: "10px" }}>
           <p style={labelStyle}>1. Qual é o principal objetivo dos seus investimentos?</p>
           <select
@@ -161,7 +159,6 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
           </select>
         </div>
 
-        {/* Pergunta 2 */}
         <div style={{ marginBottom: "10px" }}>
           <p style={labelStyle}>
             2. Por quanto tempo pretende deixar o dinheiro investido?
@@ -178,7 +175,6 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
           </select>
         </div>
 
-        {/* Pergunta 3 */}
         <div style={{ marginBottom: "10px" }}>
           <p style={labelStyle}>
             3. Se seu investimento cair 15% em um mês, o que você faz?
@@ -195,7 +191,6 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
           </select>
         </div>
 
-        {/* Pergunta 4 */}
         <div style={{ marginBottom: "10px" }}>
           <p style={labelStyle}>
             4. Como você avalia seu conhecimento em investimentos?
@@ -212,8 +207,7 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
           </select>
         </div>
 
-        {/* Pergunta 5 */}
-        <div style={{ marginBottom: "10px" }}>
+        <div style={{ marginBottom: "4px" }}>
           <p style={labelStyle}>5. Como está sua segurança financeira hoje?</p>
           <select
             value={p5}
@@ -234,9 +228,9 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
         <div
           style={{
             display: "flex",
-            gap: "10px",
+            gap: "8px",
             justifyContent: "flex-end",
-            marginTop: "10px",
+            marginTop: "12px",
           }}
         >
           <button style={buttonSecondaryStyle} onClick={onClose}>
@@ -249,6 +243,16 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
       </div>
     </div>
   );
+}
+
+function descricaoPerfil(p: PerfilInvestidor | "") {
+  if (p === "conservador")
+    return "Prioriza segurança e preservação de capital, aceitando menor risco e menor volatilidade.";
+  if (p === "moderado")
+    return "Busca equilíbrio entre segurança e retorno, aceitando oscilações moderadas no curto prazo.";
+  if (p === "agressivo")
+    return "Focado em retorno máximo, aceitando alta volatilidade e riscos maiores em busca de ganhos.";
+  return "";
 }
 
 export default function InvestGramPage() {
@@ -283,7 +287,7 @@ export default function InvestGramPage() {
     const intervalo = setInterval(() => {
       i = (i + 1) % frases.length;
       setCarregandoFrase(frases[i]);
-    }, 3500);
+    }, 4000);
 
     return () => clearInterval(intervalo);
   }, [carregando]);
@@ -291,7 +295,8 @@ export default function InvestGramPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    if (tipoInvestimento !== "carteira_balanceada" && !ativo.trim()) {
+    // Para montar carteira, o campo "ativo" vira mais descritivo/opcional.
+    if (tipoInvestimento !== "montar_carteira" && !ativo.trim()) {
       alert("⚠️ Informe o código ou nome do ativo.");
       return;
     }
@@ -312,14 +317,12 @@ export default function InvestGramPage() {
     setResultado("");
 
     try {
-      // Corpo compatível com o route.ts
       const body = {
-        tipo: tipoInvestimento,
+        tipoInvestimento,
         ativo,
-        perfil: perfilInvestidor,
-        foco: focoAnalise,
-        objetivo: "medio_prazo", // pode virar um campo depois
-        data: dataAnalise,
+        dataAnalise,
+        perfilInvestidor,
+        focoAnalise,
         observacao,
       };
 
@@ -351,16 +354,6 @@ export default function InvestGramPage() {
     }
   }
 
-  function descricaoPerfil(p: PerfilInvestidor | "") {
-    if (p === "conservador")
-      return "Prioriza segurança e preservação de capital, aceitando menor risco e menor volatilidade.";
-    if (p === "moderado")
-      return "Busca equilíbrio entre segurança e retorno, aceitando oscilações moderadas no curto prazo.";
-    if (p === "agressivo")
-      return "Focado em retorno máximo, aceitando alta volatilidade e riscos maiores em busca de ganhos.";
-    return "";
-  }
-
   return (
     <main
       style={{
@@ -374,21 +367,21 @@ export default function InvestGramPage() {
         alignItems: "center",
       }}
     >
-      {/* H1 para SEO escondido */}
+      {/* H1 SEO escondido */}
       <h1 style={{ position: "absolute", left: "-9999px", top: 0 }}>
         InvestGram - Analisador de Investimentos com Inteligência Artificial
       </h1>
 
-      {/* Título visual no estilo BetGram */}
+      {/* Título no estilo BetGram */}
       <h2
         style={{
           display: "flex",
           alignItems: "center",
           gap: "8px",
           justifyContent: "center",
-          fontSize: "1.55rem",
-          marginTop: "18px",
-          marginBottom: "12px",
+          fontSize: "1.6rem",
+          marginTop: "22px",
+          marginBottom: "16px",
         }}
       >
         <img
@@ -406,36 +399,36 @@ export default function InvestGramPage() {
         style={{
           width: "100%",
           maxWidth: "720px",
-          background: "rgba(17,24,39,0.85)",
+          background: "rgba(17,24,39,0.9)",
           border: "1px solid rgba(34,197,94,0.25)",
           borderRadius: "16px",
           boxShadow: "0 0 25px rgba(34,197,94,0.08)",
-          padding: "14px 14px 16px",
+          padding: "14px 12px 16px",
           backdropFilter: "blur(8px)",
         }}
       >
-        {/* Cabeçalho simples (sem login / créditos) */}
+        {/* Cabeçalho simples */}
         <div style={{ marginBottom: "14px" }}>
           <div
             style={{
               display: "flex",
               justifyContent: "space-between",
-              gap: "8px",
-              alignItems: "center",
+              gap: "10px",
+              alignItems: "flex-start",
               flexWrap: "wrap",
             }}
           >
-            <div style={{ fontSize: "0.96rem" }}>
+            <div style={{ fontSize: "0.98rem" }}>
               👋 <b>Bem-vindo ao InvestGram</b>
-              <div style={{ color: "#9ca3af", fontSize: "0.8rem" }}>
-                Preencha os dados e receba uma análise alinhada ao seu perfil.
+              <div style={{ color: "#9ca3af", fontSize: "0.84rem" }}>
+                Preencha os dados do ativo ou da carteira e receba uma análise
+                alinhada ao seu perfil.
               </div>
             </div>
-            {/* removido o badge "IA focada em investimentos" */}
           </div>
         </div>
 
-        {/* Form principal */}
+        {/* Form principal – inputs mais compactos */}
         <form onSubmit={handleSubmit}>
           {/* Linha: tipo + data */}
           <div
@@ -446,7 +439,7 @@ export default function InvestGramPage() {
               flexWrap: "wrap",
             }}
           >
-            <div style={{ flex: 1, minWidth: "180px" }}>
+            <div style={{ flex: 1, minWidth: "190px" }}>
               <label style={labelStyle}>📂 Tipo de investimento:</label>
               <select
                 value={tipoInvestimento}
@@ -459,9 +452,7 @@ export default function InvestGramPage() {
                 <option value="fii">🏢 Fundos Imobiliários (FII)</option>
                 <option value="etf">📊 ETFs</option>
                 <option value="renda_fixa">💵 Renda Fixa</option>
-                <option value="carteira_balanceada">
-                  📊 Montar carteira balanceada
-                </option>
+                <option value="montar_carteira">🧺 Montar carteira balanceada</option>
               </select>
             </div>
 
@@ -481,9 +472,9 @@ export default function InvestGramPage() {
             </div>
           </div>
 
-          {/* Ativo – só mostra se NÃO for carteira balanceada */}
-          {tipoInvestimento !== "carteira_balanceada" && (
-            <div style={{ marginBottom: "6px" }}>
+          {/* Ativo (se não for montar carteira) */}
+          {tipoInvestimento !== "montar_carteira" && (
+            <div style={{ marginBottom: "8px" }}>
               <label style={labelStyle}>💼 Ativo (código ou nome):</label>
               <input
                 type="text"
@@ -498,76 +489,85 @@ export default function InvestGramPage() {
           {/* Perfil + botão descobrir */}
           <div
             style={{
-              display: "flex",
-              gap: "8px",
-              flexWrap: "wrap",
-              marginBottom: "6px",
+              marginBottom: "8px",
             }}
           >
-            <div style={{ flex: 1, minWidth: "180px" }}>
-              <label style={labelStyle}>🧬 Perfil do investidor (obrigatório):</label>
-              <select
-                value={perfilInvestidor}
-                onChange={(e) =>
-                  setPerfilInvestidor(e.target.value as PerfilInvestidor)
-                }
-                style={selectStyle}
-              >
-                <option value="">Selecione...</option>
-                <option value="conservador">Conservador</option>
-                <option value="moderado">Moderado</option>
-                <option value="agressivo">Agressivo</option>
-              </select>
-            </div>
-
             <div
               style={{
-                width: "190px",
                 display: "flex",
-                alignItems: "flex-end",
+                gap: "8px",
+                flexWrap: "wrap",
+                alignItems: "stretch",
               }}
             >
-              <button
-                type="button"
+              <div style={{ flex: 1, minWidth: "190px" }}>
+                <label style={labelStyle}>
+                  🧬 Perfil do investidor (obrigatório):
+                </label>
+                <select
+                  value={perfilInvestidor}
+                  onChange={(e) =>
+                    setPerfilInvestidor(e.target.value as PerfilInvestidor)
+                  }
+                  style={selectStyle}
+                >
+                  <option value="">Selecione...</option>
+                  <option value="conservador">Conservador</option>
+                  <option value="moderado">Moderado</option>
+                  <option value="agressivo">Agressivo</option>
+                </select>
+              </div>
+
+              <div
                 style={{
-                  ...buttonSecondaryStyle,
-                  width: "100%",
-                  borderColor: "#22c55e55",
-                  color: "#22c55e",
-                  background: "rgba(22,163,74,0.08)",
+                  width: "190px",
                   display: "flex",
                   alignItems: "center",
-                  justifyContent: "center",
-                  gap: "6px",
-                  padding: "8px 12px",
-                  fontSize: "0.8rem",
                 }}
-                onClick={() => setShowPerfilModal(true)}
               >
-                ❓ Não sei, quero descobrir
-              </button>
+                <button
+                  type="button"
+                  style={{
+                    ...buttonSecondaryStyle,
+                    width: "100%",
+                    borderColor: "#22c55e55",
+                    color: "#22c55e",
+                    background: "rgba(22,163,74,0.08)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    fontSize: "0.84rem",
+                    padding: "8px 10px",
+                  }}
+                  onClick={() => setShowPerfilModal(true)}
+                >
+                  ❓ Não sei, quero descobrir
+                </button>
+              </div>
             </div>
+
+            {perfilInvestidor && (
+              <div
+                style={{
+                  background: "rgba(15,23,42,0.95)",
+                  borderRadius: "10px",
+                  border: "1px solid rgba(148,163,184,0.4)",
+                  padding: "6px 9px",
+                  fontSize: "0.78rem",
+                  color: "#9ca3af",
+                  marginTop: "6px",
+                }}
+              >
+                <b style={{ color: "#22c55e" }}>Perfil selecionado:</b>{" "}
+                {perfilInvestidor.toUpperCase()} —{" "}
+                {descricaoPerfil(perfilInvestidor)}
+              </div>
+            )}
           </div>
 
-          {perfilInvestidor && (
-            <div
-              style={{
-                background: "rgba(15,23,42,0.95)",
-                borderRadius: "10px",
-                border: "1px solid rgba(148,163,184,0.4)",
-                padding: "6px 8px",
-                fontSize: "0.76rem",
-                color: "#9ca3af",
-                marginBottom: "6px",
-              }}
-            >
-              <b style={{ color: "#22c55e" }}>Perfil selecionado:</b>{" "}
-              {perfilInvestidor.toUpperCase()} — {descricaoPerfil(perfilInvestidor)}
-            </div>
-          )}
-
-          {/* Foco da análise - obrigatório (sem o card explicativo) */}
-          <div style={{ marginBottom: "6px" }}>
+          {/* Foco da análise (continua, só sem o card explicativo) */}
+          <div style={{ marginBottom: "8px" }}>
             <label style={labelStyle}>🎯 Foco da análise (obrigatório):</label>
             <select
               value={focoAnalise}
@@ -592,16 +592,17 @@ export default function InvestGramPage() {
             <textarea
               rows={3}
               placeholder={
-                tipoInvestimento === "carteira_balanceada"
+                tipoInvestimento === "montar_carteira"
                   ? "Ex: Quero uma carteira balanceada para longo prazo, com foco em crescimento mas sem abrir mão de alguma renda passiva."
-                  : "Ex: Quero comparar esse ativo com outro da mesma categoria, já tenho posição nele, etc."
+                  : "Ex: Já tenho posição nesse ativo, quero avaliar se aumento posição, etc."
               }
               value={observacao}
               onChange={(e) => setObservacao(e.target.value)}
               style={{
                 ...inputStyle,
                 resize: "vertical",
-                minHeight: "60px",
+                minHeight: "68px",
+                fontSize: "0.9rem",
               }}
             />
           </div>
@@ -641,7 +642,7 @@ export default function InvestGramPage() {
             <h3
               style={{
                 color: "#22c55e",
-                fontSize: "0.96rem",
+                fontSize: "0.98rem",
                 marginBottom: "6px",
               }}
             >
@@ -653,15 +654,15 @@ export default function InvestGramPage() {
                 border: "1px solid rgba(34,197,94,0.25)",
                 borderRadius: "10px",
                 padding: "10px",
-                maxHeight: "320px",
+                maxHeight: "340px",
                 overflowY: "auto",
-                fontSize: "0.9rem",
+                fontSize: "0.92rem",
                 lineHeight: 1.5,
                 color: "#e5e7eb",
               }}
             >
               {resultado.split("\n").map((linha, i) => (
-                <p key={i} style={{ marginBottom: "4px" }}>
+                <p key={i} style={{ marginBottom: "5px" }}>
                   {linha}
                 </p>
               ))}
