@@ -68,19 +68,23 @@ ESTRUTURA DA RESPOSTA
 📌 **1. Resumo do Ativo**
 Texto curto sobre o que é, setor e características principais.
 
-📊 **2. Tabela Rápida**
-- Preço aproximado
-- DY 12m
-- Dividendos últimos 12m
-- P/L
-- P/VP
-- ROE
-- Liquidez
-- Setor
-- Vacância (se FII tijolo)
-- Tipo de carteira (FII)
-- Dívida líquida / EBITDA (ações)
-Todos os números devem ser realistas ou N/D.
+📊 **2. Tabela Rápida (obrigatório neste formato)**  
+Responda exatamente assim (um item por linha):  
+- Preço aproximado: R$ XX  
+- DY 12m: XX%  
+- Dividendos últimos 12m: R$ XX  
+- P/L: XX  
+- P/VP: XX  
+- ROE: XX%  
+- Liquidez diária: R$ XX milhões  
+- Setor: texto  
+- Vacância (FII): XX% ou N/D  
+- Tipo de carteira (FII): papel / tijolo / híbrido / N/D  
+- Dívida líquida / EBITDA: XX ou N/D  
+
+Nunca junte dois itens na mesma linha.
+Nunca escreva tudo colado.
+Sempre siga o formato "- item: valor".
 
 📈 **3. Fundamentos**
 - Gestão
@@ -123,3 +127,4 @@ Retorne tudo bem formatado com quebras de linha.
     );
   }
 }
+
