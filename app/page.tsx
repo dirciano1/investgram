@@ -384,7 +384,9 @@ export default function InvestGramPage() {
     {
       value: "dividendos",
       label: "💰 Dividendos",
-      show: tipoInvestimento === "acoes",
+      tipoInvestimento === "acoes" ||
+      tipoInvestimento === "etf" ||
+      tipoInvestimento === "fii",
     },
     {
       value: "fii",
@@ -394,18 +396,12 @@ export default function InvestGramPage() {
     {
       value: "comparar",
       label: "🆚 Comparar com outro ativo",
-      show:
-        tipoInvestimento === "acoes" ||
-        tipoInvestimento === "fii" ||
-        tipoInvestimento === "etf",
+      show: true,
     },
     {
       value: "setor",
       label: "🏭 Comparar com o setor",
-      show:
-        tipoInvestimento === "acoes" ||
-        tipoInvestimento === "etf" ||
-        tipoInvestimento === "fii",
+      show: true,
     },
     {
       value: "resumo",
@@ -627,6 +623,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
