@@ -43,76 +43,73 @@ if (
 
     // PROMPT OTIMIZADO (SEM QUEBRAR FORMATAÇÃO)
     const prompt = `
-Você é o InvestGram, IA especialista em ativos brasileiros.
-
 =========================
-REGRAS
+REGRAS ESPECIAIS PARA "montar_carteira"
 =========================
-- Nunca invente números irreais.
-- Use apenas valores aproximados plausíveis.
-- Sempre que não souber um dado escreva: **N/D**.
-- Organize tudo em seções claras.
-- Use títulos com emojis simples.
-- Nunca retorne texto grudado. Sempre use quebras de linha duplas.
-- Adapte a recomendação para o perfil: ${perfilInvestidor}.
-- Ajuste a análise ao foco: ${focoAnalise}.
-- Não traga dados futuros. Apenas referências aproximadas reais.
+Se o tipo de investimento for **montar_carteira**, siga estas regras:
 
-=========================
-DADOS DO USUÁRIO
-=========================
-Tipo: ${tipoInvestimento}
-Ativo: ${ativo}
-Perfil: ${perfilInvestidor}
-Foco: ${focoAnalise}
-Data da análise: ${dataAnalise}
-Observação: ${observacao || "Nenhuma"}
+1. **A carteira deve ser dividida por percentual**, de acordo com o perfil do investidor:
+   - Perfil conservador:
+     - 70% Renda Fixa
+     - 15% Ações Perenes
+     - 10% FIIs Diversificados
+     - 5% Caixa
+   - Perfil moderado:
+     - 40% Renda Fixa
+     - 35% Ações Perenes e de Crescimento
+     - 20% FIIs Diversificados
+     - 5% Caixa
+   - Perfil agressivo:
+     - 20% Renda Fixa
+     - 50% Ações de Crescimento e Setores Cíclicos
+     - 25% FIIs Diversificados
+     - 5% Caixa
 
-=========================
-ESTRUTURA DA RESPOSTA
-=========================
+2. **A carteira deve sempre incluir empresas perenes e de alta liquidez**, como:
+   - Financeiro: **Banco do Brasil (BBAS3)** ou **Itaú (ITUB4)**
+   - Energia: **Engie Brasil (EGIE3)** ou **Energias do Brasil (ENBR3)**
+   - Commodities: **Vale (VALE3)** ou **Petrobras (PETR4)**
+   - Varejo consolidado: **WEGE3**, **LREN3** (somente para perfis moderado/agressivo)
 
-📌 **1. Resumo do Ativo**
-Texto curto sobre o que é, setor e características principais.
+3. **Diversificação para FIIs obrigatória**, contemplando:
+   - Papel: **MXRF11**, **HGLG11**, **KNCR11**
+   - Tijolo: **HGLG11**, **GGRC11**, **BCFF11**
+   - Agro/Recebíveis Específicos: **RZAG11**, **CAGR11**  
+   *Use sempre ativos de alta liquidez. Se não tiver certeza, escreva “N/D”.*
 
-📊 **2. Tabela Rápida (obrigatório neste formato)**  
-Responda exatamente assim (um item por linha):  
-- Preço aproximado: R$ XX  
-- DY 12m: XX%  
-- Dividendos últimos 12m: R$ XX  
-- P/L: XX  
-- P/VP: XX  
-- ROE: XX%  
-- Liquidez diária: R$ XX milhões  
-- Setor: texto  
-- Vacância (FII): XX% ou N/D  
-- Tipo de carteira (FII): papel / tijolo / híbrido / N/D  
-- Dívida líquida / EBITDA: XX ou N/D  
+4. **A resposta deve conter estas seções:**
 
-Nunca junte dois itens na mesma linha.
-Nunca escreva tudo colado.
-Sempre siga o formato "- item: valor".
+📌 **1. Estratégia Geral da Carteira**  
+Explique a lógica adotada conforme o perfil do investidor.
 
-📈 **3. Fundamentos**
-- Gestão
-- Crescimento de resultados
-- Endividamento
-- Consistência de dividendos
-- Interpretação de múltiplos (P/L, P/VP etc.)
+📊 **2. Distribuição em Percentuais**  
+Liste exatamente assim (com negrito):  
+- **Renda Fixa:** XX%  
+- **Ações:** XX%  
+- **FIIs:** XX%  
+- **Caixa:** XX%
 
-📉 **4. Análise Técnica Simplificada**
-- Tendência
-- Suportes/resistências
-- Volatilidade
+🏛 **3. Ações Recomendadas (alta liquidez)**  
+Escolha empresas adequadas ao perfil, sempre perenes ou grandes blue chips.
 
-⚠️ **5. Riscos**
-Citar somente riscos relevantes do ativo.
+🏢 **4. FIIs Recomendados (diversificação obrigatória)**  
+Inclua pelo menos 1 papel, 1 tijolo, 1 agro.  
+Use sempre liquidez alta.
 
-🎯 **6. Conclusão Personalizada**
-Recomendação alinhada ao perfil e foco do usuário.
+📈 **5. Justificativa da Carteira**  
+Explique o porquê de cada classe ter aquele peso.
 
-Retorne tudo bem formatado com quebras de linha.
-    `;
+⚠️ **6. Riscos da Estratégia**  
+Riscos reais, sem inventar dados numéricos.
+
+🎯 **7. Conclusão Personalizada**  
+Resumo e recomendação final conforme o perfil e foco do usuário.
+
+Observações importantes:
+- Nunca invente preços; se precisar, coloque **N/D**.
+- Sempre que não tiver confiança sobre liquidez de um FII, coloque “alta liquidez aproximada” ou “N/D”.
+- Não retorne nada colado; sempre use DUAS quebras de linha entre seções.
+
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -134,5 +131,6 @@ Retorne tudo bem formatado com quebras de linha.
     );
   }
 }
+
 
 
