@@ -395,7 +395,10 @@ export default function InvestGramPage() {
     {
       value: "tecnica",
       label: "📈 Análise Técnica",
-      show: tipoInvestimento === "acoes" || tipoInvestimento === "etf",
+      show: 
+         tipoInvestimento === "acoes" || 
+         tipoInvestimento === "indices" ||
+         tipoInvestimento === "etf",
     },
 
     // Dividendos existem para ações, ETFs e FIIs
@@ -682,5 +685,6 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
