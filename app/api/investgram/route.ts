@@ -17,18 +17,18 @@ export async function POST(req: Request) {
     } = body;
 
     // Validar ativo somente quando o tipo NÃO for montar_carteira
-if (
-  !tipoInvestimento ||
-  !perfilInvestidor ||
-  !focoAnalise ||
-  !dataAnalise ||
-  (tipoInvestimento !== "montar_carteira" && (!ativo || ativo.trim() === ""))
-) {
-  return NextResponse.json(
-    { error: "Campos obrigatórios faltando." },
-    { status: 400 }
-  );
-}
+    if (
+      !tipoInvestimento ||
+      !perfilInvestidor ||
+      !focoAnalise ||
+      !dataAnalise ||
+      (tipoInvestimento !== "montar_carteira" && (!ativo || ativo.trim() === ""))
+    ) {
+      return NextResponse.json(
+        { error: "Campos obrigatórios faltando." },
+        { status: 400 }
+      );
+    }
 
     if (!process.env.GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY não configurada!");
@@ -41,75 +41,120 @@ if (
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // PROMPT OTIMIZADO (SEM QUEBRAR FORMATAÇÃO)
+    // =====================================================
+    // PROMPT COMPLETO COM ANÁLISE + MONTAR CARTEIRA
+    // =====================================================
+
     const prompt = `
+Você é o InvestGram, IA especialista em ativos brasileiros.
+
+=========================
+REGRAS GERAIS
+=========================
+- Nunca invente números irreais.
+- Use apenas valores aproximados plausíveis.
+- Sempre que não souber um dado escreva: **N/D**.
+- Organize tudo em seções claras.
+- Use títulos com emojis.
+- Sempre use quebras de linha duplas entre seções.
+- Adapte a recomendação ao perfil: ${perfilInvestidor}.
+- Ajuste a análise ao foco: ${focoAnalise}.
+- Não traga dados futuros; use referências históricas aproximadas.
+
 =========================
 REGRAS ESPECIAIS PARA "montar_carteira"
 =========================
 Se o tipo de investimento for **montar_carteira**, siga estas regras:
 
-1. **A carteira deve ser dividida por percentual**, de acordo com o perfil do investidor:
-   - Perfil conservador:
+1. Percentuais por perfil de investidor:
+   - Conservador:
      - 70% Renda Fixa
      - 15% Ações Perenes
      - 10% FIIs Diversificados
      - 5% Caixa
-   - Perfil moderado:
+   - Moderado:
      - 40% Renda Fixa
      - 35% Ações Perenes e de Crescimento
      - 20% FIIs Diversificados
      - 5% Caixa
-   - Perfil agressivo:
+   - Agressivo:
      - 20% Renda Fixa
      - 50% Ações de Crescimento e Setores Cíclicos
      - 25% FIIs Diversificados
      - 5% Caixa
 
-2. **A carteira deve sempre incluir empresas perenes e de alta liquidez**, como:
-   - Financeiro: **Banco do Brasil (BBAS3)** ou **Itaú (ITUB4)**
-   - Energia: **Engie Brasil (EGIE3)** ou **Energias do Brasil (ENBR3)**
-   - Commodities: **Vale (VALE3)** ou **Petrobras (PETR4)**
-   - Varejo consolidado: **WEGE3**, **LREN3** (somente para perfis moderado/agressivo)
+2. Ações obrigatoriamente devem ser de alta liquidez:
+   - Financeiro: **BBAS3**, **ITUB4**
+   - Energia: **EGIE3**, **ENBR3**
+   - Commodities: **VALE3**, **PETR4**
+   - Varejo consolidado: **WEGE3**, **LREN3** (moderado/agressivo)
 
-3. **Diversificação para FIIs obrigatória**, contemplando:
-   - Papel: **MXRF11**, **HGLG11**, **KNCR11**
-   - Tijolo: **HGLG11**, **GGRC11**, **BCFF11**
-   - Agro/Recebíveis Específicos: **RZAG11**, **CAGR11**  
-   *Use sempre ativos de alta liquidez. Se não tiver certeza, escreva “N/D”.*
+3. FIIs obrigatoriamente devem ter diversificação:
+   - Papel: **MXRF11**, **KNCR11**
+   - Tijolo: **HGLG11**, **GGRC11**
+   - Agro: **RZAG11**, **CAGR11**
+   - Sempre priorize FIIs líquidos.
 
-4. **A resposta deve conter estas seções:**
+4. Estrutura obrigatória da resposta para montar carteira:
+📌 **1. Estratégia Geral da Carteira**
 
-📌 **1. Estratégia Geral da Carteira**  
-Explique a lógica adotada conforme o perfil do investidor.
-
-📊 **2. Distribuição em Percentuais**  
-Liste exatamente assim (com negrito):  
-- **Renda Fixa:** XX%  
-- **Ações:** XX%  
-- **FIIs:** XX%  
+📊 **2. Distribuição em Percentuais**
+- **Renda Fixa:** XX%
+- **Ações:** XX%
+- **FIIs:** XX%
 - **Caixa:** XX%
 
-🏛 **3. Ações Recomendadas (alta liquidez)**  
-Escolha empresas adequadas ao perfil, sempre perenes ou grandes blue chips.
+🏛 **3. Ações Recomendadas (alta liquidez)**
 
-🏢 **4. FIIs Recomendados (diversificação obrigatória)**  
-Inclua pelo menos 1 papel, 1 tijolo, 1 agro.  
-Use sempre liquidez alta.
+🏢 **4. FIIs Recomendados (diversificação obrigatória)**
 
-📈 **5. Justificativa da Carteira**  
-Explique o porquê de cada classe ter aquele peso.
+📈 **5. Justificativa da Carteira**
 
-⚠️ **6. Riscos da Estratégia**  
-Riscos reais, sem inventar dados numéricos.
+⚠️ **6. Riscos da Estratégia**
 
-🎯 **7. Conclusão Personalizada**  
-Resumo e recomendação final conforme o perfil e foco do usuário.
+🎯 **7. Conclusão Personalizada**
 
-Observações importantes:
-- Nunca invente preços; se precisar, coloque **N/D**.
-- Sempre que não tiver confiança sobre liquidez de um FII, coloque “alta liquidez aproximada” ou “N/D”.
-- Não retorne nada colado; sempre use DUAS quebras de linha entre seções.
+=========================
+ESTRUTURA DA RESPOSTA (para análises normais)
+=========================
 
+📌 **1. Resumo do Ativo**
+Texto curto explicando setor e características.
+
+📊 **2. Tabela Rápida**  
+Cada item em **linha separada**, exatamente assim:
+- **Preço aproximado:** R$ XX  
+- **DY 12m:** XX%  
+- **Dividendos últimos 12m:** R$ XX  
+- **P/L:** XX  
+- **P/VP:** XX  
+- **ROE:** XX%  
+- **Liquidez diária:** R$ XX milhões  
+- **Setor:** texto  
+- **Vacância (FII):** XX% ou N/D  
+- **Tipo de carteira (FII):** papel / tijolo / híbrido / N/D  
+- **Dívida líquida / EBITDA:** XX ou N/D  
+
+📈 **3. Fundamentos**
+
+📉 **4. Análise Técnica Simplificada**
+
+⚠️ **5. Riscos**
+
+🎯 **6. Conclusão Personalizada**
+
+=========================
+DADOS DO USUÁRIO
+=========================
+Tipo: ${tipoInvestimento}
+Ativo: ${ativo || "N/D"}
+Perfil: ${perfilInvestidor}
+Foco: ${focoAnalise}
+Data da análise: ${dataAnalise}
+Observação: ${observacao || "Nenhuma"}
+`;
+
+    // =====================================================
 
     const result = await model.generateContent(prompt);
     const response = await result.response;
@@ -131,6 +176,3 @@ Observações importantes:
     );
   }
 }
-
-
-
