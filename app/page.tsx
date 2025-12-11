@@ -40,23 +40,23 @@ const labelStyle: React.CSSProperties = {
 function formatarAnalise(texto: string) {
   if (!texto) return "";
 
-  return texto
+  let formatted = texto
 
     // Remove JSON residual
     .replace(/^\s*\{.*?"resposta":\s*"/, "")
     .replace(/"}\s*$/, "")
 
-    // Negrito → azul elegante
+    // Negrito → azul
     .replace(/\*\*(.*?)\*\*/g, `<span style="color:#38bdf8;font-weight:600;">$1</span>`)
 
-    // Ajusta \n vindo do Gemini
+    // Conserta \n vindo do Gemini
     .replace(/\\n/g, "\n")
 
-    // Remove espaçamento duplo → deixa apenas 1 quebra
+    // Remove quebras duplas
     .replace(/\n{2,}/g, "\n")
 
     // ======================================================
-    // TÍTULOS COM EMOJI → VERDE, SEM LINHA ANTES
+    // TÍTULOS COM EMOJI → VERDE, sem linha antes
     // ======================================================
     .replace(
       /^([📌📊📈⚠️🎯🏛🏢].+)$/gm,
@@ -71,7 +71,7 @@ function formatarAnalise(texto: string) {
     )
 
     // ======================================================
-    // TÍTULOS "1. Tabela", "2. Resumo" → AZUL
+    // TÍTULOS NUMERADOS → AZUL
     // ======================================================
     .replace(
       /^(\d+\.\s+[^\n]+)$/gm,
@@ -86,7 +86,7 @@ function formatarAnalise(texto: string) {
     )
 
     // ======================================================
-    // Substitui "- item" por bullet azul
+    // "- item" em bullet azul
     // ======================================================
     .replace(
       /^- (.*)$/gm,
@@ -95,28 +95,28 @@ function formatarAnalise(texto: string) {
       </div>`
     )
 
-    // "• item" já existente → deixa azul
+    // "• item" existente → azul universal
     .replace(
       /^•\s*(.*)$/gm,
       `<div style="color:#38bdf8; margin-left:8px; margin-bottom:2px; font-weight:500;">
         • $1
       </div>`
-    )
+    );
 
-    // ======================================================
-    // SEPARADOR — AGORA SÓ APÓS OS PARÁGRAFOS
-    // ======================================================
-    .replace(
-      /(.*?)(?=<div style="(?:margin-top|color))/gs,
-      (match) =>
-        match.trim()
-          ? match + `<div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:8px 0;"></div>`
-          : match
-    )
+  // ======================================================
+  // ADICIONAR SEPARADOR ENTRE PARÁGRAFOS (SEM REGEX 's')
+  // ======================================================
+  formatted = formatted.split("\n").map(linha => {
+    if (linha.trim() === "") return "";
+    return linha + `<div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:8px 0;"></div>`;
+  }).join("");
 
-    // Quebras de linha normais
-    .replace(/\n/g, "<br>");
+  // Transformar \n em <br> no final
+  formatted = formatted.replace(/\n/g, "<br>");
+
+  return formatted;
 }
+
 
 /* ==========================
    MODAL DE PERFIL
@@ -570,6 +570,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
