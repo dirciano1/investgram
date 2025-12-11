@@ -9,170 +9,278 @@ export async function POST(req: Request) {
 
     const {
       tipoInvestimento,
+      tipoAnalise,
       ativo,
+      ativoComparar,
       perfilInvestidor,
-      focoAnalise,
       dataAnalise,
       observacao,
     } = body;
 
-    // Validar ativo somente quando o tipo NÃO for montar_carteira
-    if (
-      !tipoInvestimento ||
-      !perfilInvestidor ||
-      !focoAnalise ||
-      !dataAnalise ||
-      (tipoInvestimento !== "montar_carteira" && (!ativo || ativo.trim() === ""))
-    ) {
-      return NextResponse.json(
-        { error: "Campos obrigatórios faltando." },
-        { status: 400 }
-      );
-    }
+    /* ================================
+       VALIDAÇÃO BÁSICA
+    ================================= */
+    if (!tipoInvestimento)
+      return erro("Tipo de investimento faltando.");
+    if (!tipoAnalise)
+      return erro("Tipo de análise faltando.");
+    if (!perfilInvestidor)
+      return erro("Perfil faltando.");
+    if (!dataAnalise)
+      return erro("Data faltando.");
 
-    if (!process.env.GEMINI_API_KEY) {
-      console.error("GEMINI_API_KEY não configurada!");
-      return NextResponse.json(
-        { error: "GEMINI_API_KEY ausente." },
-        { status: 500 }
-      );
-    }
+    if (tipoInvestimento !== "montar_carteira" && !ativo?.trim())
+      return erro("Ativo principal faltando.");
+
+    if (tipoAnalise === "comparar" && !ativoComparar?.trim())
+      return erro("Ativo para comparação faltando.");
+
+    /* ================================
+       INICIALIZA GEMINI
+    ================================= */
+    if (!process.env.GEMINI_API_KEY)
+      return erro("GEMINI_API_KEY não configurada.");
 
     const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    // =====================================================
-    // PROMPT COMPLETO COM ANÁLISE + MONTAR CARTEIRA
-    // =====================================================
+    /* ================================
+       PROMPT BASE
+    ================================= */
+    let promptBase = `
+Você é o **InvestGram**, IA especialista em investimentos brasileiros.
 
-    const prompt = `
-Você é o InvestGram, IA especialista em ativos brasileiros.
+Sempre siga os princípios:
+- Nunca invente números exatos; apenas aproximados plausíveis.
+- Sempre use **N/D** quando não souber algo.
+- Formate com títulos claros, emojis, listas e quebras de linha duplas.
+- Adapte tudo ao perfil **${perfilInvestidor}**.
+- Data da análise: **${dataAnalise}**
+- Observação do usuário: **${observacao || "Nenhuma"}**
 
-=========================
-REGRAS GERAIS
-=========================
-- Nunca invente números irreais.
-- Use apenas valores aproximados plausíveis.
-- Sempre que não souber um dado escreva: **N/D**.
-- Organize tudo em seções claras.
-- Use títulos com emojis.
-- Sempre use quebras de linha duplas entre seções.
-- Adapte a recomendação ao perfil: ${perfilInvestidor}.
-- Ajuste a análise ao foco: ${focoAnalise}.
-- Não traga dados futuros; use referências históricas aproximadas.
+Ativo principal: **${ativo || "N/D"}**
+Tipo de Investimento: **${tipoInvestimento}**
+Tipo de Análise: **${tipoAnalise}**
 
-=========================
-REGRAS ESPECIAIS PARA "montar_carteira"
-=========================
-Se o tipo de investimento for **montar_carteira**, siga estas regras:
-
-1. Percentuais por perfil de investidor:
-   - Conservador:
-     - 70% Renda Fixa
-     - 15% Ações Perenes
-     - 10% FIIs Diversificados
-     - 5% Caixa
-   - Moderado:
-     - 40% Renda Fixa
-     - 35% Ações Perenes e de Crescimento
-     - 20% FIIs Diversificados
-     - 5% Caixa
-   - Agressivo:
-     - 20% Renda Fixa
-     - 50% Ações de Crescimento e Setores Cíclicos
-     - 25% FIIs Diversificados
-     - 5% Caixa
-
-2. Ações obrigatoriamente devem ser de alta liquidez:
-   - Financeiro: **BBAS3**, **ITUB4**
-   - Energia: **EGIE3**, **ENBR3**
-   - Commodities: **VALE3**, **PETR4**
-   - Varejo consolidado: **WEGE3**, **LREN3** (moderado/agressivo)
-
-3. FIIs obrigatoriamente devem ter diversificação:
-   - Papel: **MXRF11**, **KNCR11**
-   - Tijolo: **HGLG11**, **GGRC11**
-   - Agro: **RZAG11**, **CAGR11**
-   - Sempre priorize FIIs líquidos.
-
-4. Estrutura obrigatória da resposta para montar carteira:
-📌 **1. Estratégia Geral da Carteira**
-
-📊 **2. Distribuição em Percentuais**
-- **Renda Fixa:** XX%
-- **Ações:** XX%
-- **FIIs:** XX%
-- **Caixa:** XX%
-
-🏛 **3. Ações Recomendadas (alta liquidez)**
-
-🏢 **4. FIIs Recomendados (diversificação obrigatória)**
-
-📈 **5. Justificativa da Carteira**
-
-⚠️ **6. Riscos da Estratégia**
-
-🎯 **7. Conclusão Personalizada**
-
-=========================
-ESTRUTURA DA RESPOSTA (para análises normais)
-=========================
-
-📌 **1. Resumo do Ativo**
-Texto curto explicando setor e características.
-
-📊 **2. Tabela Rápida**  
-Cada item em **linha separada**, exatamente assim:
-- **Preço aproximado:** R$ XX  
-- **DY 12m:** XX%  
-- **Dividendos últimos 12m:** R$ XX  
-- **P/L:** XX  
-- **P/VP:** XX  
-- **ROE:** XX%  
-- **Liquidez diária:** R$ XX milhões  
-- **Setor:** texto  
-- **Vacância (FII):** XX% ou N/D  
-- **Tipo de carteira (FII):** papel / tijolo / híbrido / N/D  
-- **Dívida líquida / EBITDA:** XX ou N/D  
-
-📈 **3. Fundamentos**
-
-📉 **4. Análise Técnica Simplificada**
-
-⚠️ **5. Riscos**
-
-🎯 **6. Conclusão Personalizada**
-
-=========================
-DADOS DO USUÁRIO
-=========================
-Tipo: ${tipoInvestimento}
-Ativo: ${ativo || "N/D"}
-Perfil: ${perfilInvestidor}
-Foco: ${focoAnalise}
-Data da análise: ${dataAnalise}
-Observação: ${observacao || "Nenhuma"}
 `;
 
-    // =====================================================
+    /* ================================
+       PROMPTS ESPECÍFICOS PARA CADA TIPO DE ANÁLISE
+    ================================= */
 
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const texto = response.text();
+    let promptFinal = "";
 
-    return NextResponse.json(
-      {
-        sucesso: true,
-        resposta: texto,
-      },
-      { status: 200 }
-    );
+    /* -----------------------------------
+       1. ANÁLISE COMPLETA
+    ----------------------------------- */
+    if (tipoAnalise === "completa") {
+      promptFinal = `
+${promptBase}
+
+Gere uma **análise completa** contendo:
+
+📌 **1. Resumo do Ativo**
+📊 **2. Tabela Rápida**
+- Preço aproximado
+- P/L, P/VP, ROE
+- Liquidez diária
+- Dividendos últimos 12m
+- DY 12m
+- Setor
+- No caso de FII: Vacância, tipo da carteira (papel/tijolo/híbrido), Dívida líquida / patrimônio
+
+📈 **3. Fundamentos**
+📉 **4. Análise Técnica Simplificada**
+⚠️ **5. Riscos relevantes**
+🎯 **6. Conclusão personalizada**
+
+Siga a estrutura exatamente como descrita.
+`;
+    }
+
+    /* -----------------------------------
+       2. FUNDAMENTALISTA
+    ----------------------------------- */
+    if (tipoAnalise === "fundamentalista") {
+      promptFinal = `
+${promptBase}
+
+Gere uma **análise fundamentalista aprofundada**, com:
+
+📌 Resumo
+📊 Tabela com múltiplos fundamentais (P/L, P/VP, ROE, ROIC, Margem, Caixa, Dívida)
+📈 Crescimento de receita e lucro (apenas aproximações plausíveis)
+🏛 Qualidade da gestão
+📦 Vantagens competitivas
+⚠️ Riscos
+🎯 Conclusão clara para o perfil ${perfilInvestidor}.
+`;
+    }
+
+    /* -----------------------------------
+       3. TÉCNICA
+    ----------------------------------- */
+    if (tipoAnalise === "tecnica") {
+      promptFinal = `
+${promptBase}
+
+Gere uma **análise técnica profissional**, com:
+
+📈 Tendência principal
+📉 Suportes importantes
+📈 Resistências importantes
+📊 Volatilidade
+🔥 Regiões de interesse
+⚠️ Alertas técnicos
+
+Nunca invente valores exatos de preços.
+Use apenas frases como "região aproximada".
+`;
+    }
+
+    /* -----------------------------------
+       4. DIVIDENDOS
+    ----------------------------------- */
+    if (tipoAnalise === "dividendos") {
+      promptFinal = `
+${promptBase}
+
+Gere uma análise focada em **Dividendos**, com:
+
+💰 Histórico de pagamentos
+📦 Consistência dos últimos anos
+📊 Dividend Yield aproximado
+🔍 Sustentabilidade dos dividendos
+⚠️ Riscos de corte
+🎯 Conclusão sobre renda para o perfil ${perfilInvestidor}.
+`;
+    }
+
+    /* -----------------------------------
+       5. ANÁLISE FII
+    ----------------------------------- */
+    if (tipoAnalise === "fii") {
+      promptFinal = `
+${promptBase}
+
+Gere uma análise **especializada para Fundos Imobiliários**, com:
+
+🏢 Tipo do fundo (papel/tijolo/híbrido)
+📊 Vacância física e financeira (aproximada)
+🏛 Qualidade da gestão
+📜 Principais contratos e vencimentos
+💰 Estabilidade dos dividendos
+⚠️ Riscos reais
+🎯 Conclusão alinhada ao perfil ${perfilInvestidor}.
+`;
+    }
+
+    /* -----------------------------------
+       6. COMPARAR ATIVOS
+    ----------------------------------- */
+    if (tipoAnalise === "comparar") {
+      promptFinal = `
+${promptBase}
+
+Ativo para comparar: **${ativoComparar}**
+
+Gere uma análise comparativa completa entre **${ativo}** e **${ativoComparar}**, contendo:
+
+🆚 **1. Tabela lado a lado**
+- Setor
+- Preço aproximado
+- P/L, P/VP, ROE
+- DY 12m
+- Liquidez
+- Riscos
+
+📈 **2. Quem está mais barato**
+📉 **3. Quem tem mais risco**
+📊 **4. Quem está mais descontado vs setor**
+🎯 **5. Qual faz mais sentido para o perfil ${perfilInvestidor}**
+`;
+    }
+
+    /* -----------------------------------
+       7. COMPARAR COM SETOR
+    ----------------------------------- */
+    if (tipoAnalise === "setor") {
+      promptFinal = `
+${promptBase}
+
+Gere uma análise comparando **${ativo}** com outros ativos relevantes do mesmo setor:
+
+🏭 Média dos múltiplos do setor
+📉 Se o ativo está caro ou barato
+📈 Pontos fortes vs concorrentes
+⚠️ Riscos setoriais
+🎯 Conclusão para o perfil ${perfilInvestidor}.
+`;
+    }
+
+    /* -----------------------------------
+       8. RESUMO EXECUTIVO
+    ----------------------------------- */
+    if (tipoAnalise === "resumo") {
+      promptFinal = `
+${promptBase}
+
+Gere um **resumo executivo** com no máximo 6 linhas:
+
+📌 O que é o ativo  
+📊 2 indicadores chave  
+⚠️ 1 risco principal  
+🎯 Decisão rápida para o perfil ${perfilInvestidor}  
+
+Sem enrolação.
+Clareza máxima.
+`;
+    }
+
+    /* -----------------------------------
+       9. MONTAR CARTEIRA (mantido da sua versão anterior)
+    ----------------------------------- */
+    if (tipoInvestimento === "montar_carteira") {
+      promptFinal = `
+${promptBase}
+
+Monte uma carteira diversificada conforme o perfil **${perfilInvestidor}**:
+
+📊 Percentuais exatos por classe
+🏛 Ações recomendadas
+🏢 FIIs recomendados (tijolo, papel, agro)
+💵 Renda fixa
+⚠️ Riscos
+🎯 Conclusão estratégica
+`;
+    }
+
+    /* ==========================================
+       EXECUTAR GEMINI
+    =========================================== */
+    const result = await model.generateContent(promptFinal);
+    const resposta = await result.response.text();
+
+    return respostaStream(resposta);
 
   } catch (err) {
     console.error("Erro InvestGram API:", err);
-    return NextResponse.json(
-      { error: "Erro interno na API do InvestGram." },
-      { status: 500 }
-    );
+    return erro("Erro interno no servidor.");
   }
+}
+
+/* ================================
+   HELPERS
+================================ */
+function erro(msg: string) {
+  return NextResponse.json({ error: msg }, { status: 400 });
+}
+
+function respostaStream(text: string) {
+  return new NextResponse(text, {
+    status: 200,
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+    },
+  });
 }
