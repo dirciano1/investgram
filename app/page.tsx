@@ -135,7 +135,7 @@ const cardWrapperStyle: React.CSSProperties = {
   borderRadius: "16px",
   padding: "12px",
   boxShadow: "0 0 18px rgba(34,197,94,0.12)",
-  height: "80vh",
+  height: "90vh",
   display: "flex",
   flexDirection: "column",
 };
@@ -1242,7 +1242,7 @@ export default function InvestGramPage() {
                 {/* OBSERVAÇÃO */}
                 <label style={labelStyle}>📝 Observação (opcional):</label>
                 <textarea
-                  style={{ ...inputStyle, minHeight: 70 }}
+                  style={{ ...inputStyle, minHeight: 50 }}
                   value={observacao}
                   onChange={(e) => setObservacao(e.target.value)}
                 />
@@ -1343,3 +1343,4 @@ export default function InvestGramPage() {
     </>
   );
 }
+
