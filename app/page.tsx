@@ -2,9 +2,22 @@
 
 import React, { useState, useEffect } from "react";
 
+/* ==========================
+   TIPOS
+========================== */
 type TipoInvestimento = "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira";
+
+type TipoAnalise =
+  | "completa"
+  | "fundamentalista"
+  | "tecnica"
+  | "dividendos"
+  | "fii"
+  | "comparar"
+  | "setor"
+  | "resumo";
+
 type PerfilInvestidor = "conservador" | "moderado" | "agressivo";
-type FocoAnalise = "dividendos" | "valorizacao" | "crescimento" | "renda_passiva";
 
 /* ==========================
    ESTILOS GLOBAIS
@@ -37,7 +50,9 @@ const labelStyle: React.CSSProperties = {
   color: "#e5e7eb",
 };
 
-
+/* ==========================
+   FUNÇÃO formatarAnalise
+========================== */
 function formatarAnalise(texto: string) {
   if (!texto) return "";
 
@@ -48,72 +63,56 @@ function formatarAnalise(texto: string) {
     .replace(/\\n/g, "\n")
     .replace(/\n{2,}/g, "\n");
 
-  // TÍTULOS COM EMOJI (VERDE)
+  // Títulos com emoji
   t = t.replace(
     /^([📌📊📈⚠️🎯🏛🏢].+)$/gm,
     `<div style="margin-top:12px;margin-bottom:4px;color:#22c55e;font-weight:700;font-size:1.05rem;">$1</div>`
   );
 
-  // TÍTULOS NUMERADOS (AZUL)
   t = t.replace(
     /^(\d+\.\s+[^\n]+)$/gm,
     `<div style="margin-top:12px;margin-bottom:4px;color:#38bdf8;font-weight:700;font-size:1.05rem;">$1</div>`
   );
 
-  // BULLETs "- item"
+  // Bullets
   t = t.replace(
     /^- (.*)$/gm,
     `<div style="color:#38bdf8;margin-left:10px;margin-bottom:2px;font-weight:500;">• $1</div>`
   );
 
-  // BULLETs "• item"
   t = t.replace(
     /^•\s*(.*)$/gm,
     `<div style="color:#38bdf8;margin-left:10px;margin-bottom:2px;font-weight:500;">• $1</div>`
   );
 
-  // ======================================================
-  // AQUI VAI A CORREÇÃO DE VERDADE
-  // Adicionar separador SOMENTE após parágrafos comuns
-  // Sem regex complexo, sem quebrar HTML.
-  // ======================================================
-
+  // Separador entre parágrafos
   const linhas = t.split("\n");
-  const processadas: string[] = [];
+  const proc: string[] = [];
 
   for (let linha of linhas) {
     const l = linha.trim();
-
-    // ignora linhas vazias
     if (!l) {
-      processadas.push("");
+      proc.push("");
       continue;
     }
 
-    const eTituloEmoji = /^[📌📊📈⚠️🎯🏛🏢]/.test(l);
-    const eTituloNumero = /^\d+\./.test(l);
-    const eBullet = l.startsWith("•") || l.startsWith("- ");
+    const isTitleEmoji = /^[📌📊📈⚠️🎯🏛🏢]/.test(l);
+    const isTitleNum = /^\d+\./.test(l);
+    const isBullet = l.startsWith("•");
 
-    // NÃO colocar separador após títulos ou bullets
-    if (eTituloEmoji || eTituloNumero || eBullet) {
-      processadas.push(linha);
+    if (isTitleEmoji || isTitleNum || isBullet) {
+      proc.push(linha);
       continue;
     }
 
-    // Caso contrário → é parágrafo → recebe separador
-    processadas.push(
+    proc.push(
       linha +
         `<div style="border-bottom:1px solid rgba(56,189,248,0.35);margin:6px 0;"></div>`
     );
   }
 
-  t = processadas.join("\n");
-
-  // troca final de \n por <br>
-  return t.replace(/\n/g, "<br>");
+  return proc.join("<br>");
 }
-
-
 
 /* ==========================
    MODAL DE PERFIL
@@ -257,11 +256,15 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
 export default function InvestGramPage() {
   const [tipoInvestimento, setTipoInvestimento] =
     useState<TipoInvestimento>("acoes");
+
+  const [tipoAnalise, setTipoAnalise] = useState<TipoAnalise>("completa");
   const [ativo, setAtivo] = useState("");
+  const [ativoComparar, setAtivoComparar] = useState("");
+
   const [dataAnalise, setDataAnalise] = useState("");
   const [perfilInvestidor, setPerfilInvestidor] =
     useState<PerfilInvestidor | "">("");
-  const [focoAnalise, setFocoAnalise] = useState<FocoAnalise | "">("");
+
   const [observacao, setObservacao] = useState("");
 
   const [carregando, setCarregando] = useState(false);
@@ -270,7 +273,7 @@ export default function InvestGramPage() {
   const [showPerfilModal, setShowPerfilModal] = useState(false);
   const [panelFlip, setPanelFlip] = useState(false);
 
-  /* frases animadas */
+  /* animações */
   useEffect(() => {
     if (!carregando) return;
     const frases = [
@@ -281,19 +284,26 @@ export default function InvestGramPage() {
       "Gerando conclusão personalizada…",
     ];
     let i = 0;
-    const timer = setInterval(() => setCarregandoFrase(frases[i++ % frases.length]), 4000);
+    const timer = setInterval(
+      () => setCarregandoFrase(frases[i++ % frases.length]),
+      4000
+    );
     return () => clearInterval(timer);
   }, [carregando]);
 
-  /* SUBMIT */
+  /* ==========================
+     SUBMIT
+  ========================== */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (!dataAnalise) return alert("⚠️ Informe a data.");
     if (tipoInvestimento !== "montar_carteira" && !ativo.trim())
       return alert("⚠️ Informe o ativo.");
-    if (!perfilInvestidor) return alert("⚠️ Escolha o perfil.");
-    if (!focoAnalise) return alert("⚠️ Foco obrigatório.");
+    if (!perfilInvestidor) return alert("⚠️ Informe o perfil.");
+
+    if (tipoAnalise === "comparar" && !ativoComparar.trim())
+      return alert("⚠️ Informe o ativo para comparação.");
 
     setCarregando(true);
     setResultado("");
@@ -304,28 +314,20 @@ export default function InvestGramPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tipoInvestimento,
+          tipoAnalise,
           ativo,
+          ativoComparar:
+            tipoAnalise === "comparar" ? ativoComparar.trim() : null,
           dataAnalise,
           perfilInvestidor,
-          focoAnalise,
           observacao,
         }),
       });
 
       if (!res.ok) throw new Error("Erro na API");
-      if (!res.body) throw new Error("Resposta vazia");
 
-      const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let texto = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        texto += dec.decode(value, { stream: true });
-      }
-
-      setResultado(texto);
+      const text = await res.text();
+      setResultado(text);
       setPanelFlip(true);
     } finally {
       setCarregando(false);
@@ -333,7 +335,7 @@ export default function InvestGramPage() {
   }
 
   /* ==========================
-     RENDER FINAL
+     UI
   ========================== */
   return (
     <main
@@ -341,17 +343,13 @@ export default function InvestGramPage() {
         minHeight: "100vh",
         background: "linear-gradient(135deg,#0b1324,#111827)",
         color: "#fff",
-        fontFamily: "Inter, system-ui, sans-serif",
+        fontFamily: "Inter, system-ui",
         padding: "0px 20px 8vh",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
       }}
     >
-      <h1 style={{ position: "absolute", left: -9999 }}>
-        InvestGram - Analisador de Investimentos
-      </h1>
-
       <h2 style={{ display: "flex", gap: 8, marginTop: 22 }}>
         <img src="/investgram-icon.png" alt="Logo" style={{ width: 46 }} />
         <span style={{ color: "#22c55e" }}>
@@ -367,132 +365,100 @@ export default function InvestGramPage() {
           border: "1px solid rgba(34,197,94,0.25)",
           borderRadius: 16,
           padding: 16,
-          boxShadow: "0 0 25px rgba(34,197,94,0.08)",
         }}
       >
         {!panelFlip ? (
-          /* ======================
-             FORMULÁRIO
-          ====================== */
           <form onSubmit={handleSubmit}>
+            {/* TIPO INVESTIMENTO */}
+            <label style={labelStyle}>📂 Tipo de investimento:</label>
+            <select
+              style={selectStyle}
+              value={tipoInvestimento}
+              onChange={(e) =>
+                setTipoInvestimento(e.target.value as TipoInvestimento)
+              }
+            >
+              <option value="acoes">📈 Ações</option>
+              <option value="fii">🏢 Fundos Imobiliários</option>
+              <option value="etf">📊 ETFs</option>
+              <option value="renda_fixa">💵 Renda Fixa</option>
+              <option value="montar_carteira">📊 Montar Carteira</option>
+            </select>
 
-            {/* LINHA 1 */}
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>📂 Tipo de investimento:</label>
-                <select
-                  style={selectStyle}
-                  value={tipoInvestimento}
-                  onChange={(e) => setTipoInvestimento(e.target.value as TipoInvestimento)}
-                >
-                  <option value="acoes">📈 Ações</option>
-                  <option value="fii">🏢 Fundos Imobiliários</option>
-                  <option value="etf">📊 ETFs</option>
-                  <option value="renda_fixa">💵 Renda Fixa</option>
-                  <option value="montar_carteira">📊 Montar Carteira</option>
-                </select>
-              </div>
+            {/* DATA */}
+            <label style={labelStyle}>📅 Data:</label>
+            <input
+              style={{ ...inputStyle, textAlign: "center" }}
+              value={dataAnalise}
+              onChange={(e) => setDataAnalise(e.target.value)}
+              placeholder="10/12/2025"
+            />
 
-              <div style={{ width: 150 }}>
-                <label style={labelStyle}>📅 Data:</label>
-                <input
-                  style={{ ...inputStyle, textAlign: "center" }}
-                  placeholder="10/12/2025"
-                  value={dataAnalise}
-                  onChange={(e) => setDataAnalise(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* ATIVO */}
+            {/* ATIVO PRINCIPAL */}
             {tipoInvestimento !== "montar_carteira" && (
-              <div>
+              <>
                 <label style={labelStyle}>💼 Ativo:</label>
                 <input
                   style={inputStyle}
-                  placeholder="PETR4, HGLG11, IVVB11..."
+                  placeholder="PETR4, HGLG11..."
                   value={ativo}
                   onChange={(e) => setAtivo(e.target.value)}
                 />
-              </div>
+              </>
             )}
 
             {/* PERFIL */}
-            <div style={{ display: "flex", gap: 8 }}>
-              <div style={{ flex: 1 }}>
-                <label style={labelStyle}>🧬 Perfil:</label>
-                <select
-                  style={selectStyle}
-                  value={perfilInvestidor}
-                  onChange={(e) => setPerfilInvestidor(e.target.value as PerfilInvestidor)}
-                >
-                  <option value="">Selecione...</option>
-                  <option value="conservador">Conservador</option>
-                  <option value="moderado">Moderado</option>
-                  <option value="agressivo">Agressivo</option>
-                </select>
-              </div>
+            <label style={labelStyle}>🧬 Perfil:</label>
+            <select
+              style={selectStyle}
+              value={perfilInvestidor}
+              onChange={(e) =>
+                setPerfilInvestidor(e.target.value as PerfilInvestidor)
+              }
+            >
+              <option value="">Selecione...</option>
+              <option value="conservador">Conservador</option>
+              <option value="moderado">Moderado</option>
+              <option value="agressivo">Agressivo</option>
+            </select>
 
-              <button
-                type="button"
-                style={{
-                  ...buttonSecondaryStyle,
-                  width: 190,
-                  marginTop: 22,
-                  background: "rgba(22,163,74,0.1)",
-                  borderColor: "#22c55e55",
-                  color: "#22c55e",
-                }}
-                onClick={() => setShowPerfilModal(true)}
-              >
-                ❓ Descobrir perfil
-              </button>
-            </div>
+            {/* Tipo de Análise */}
+            <label style={labelStyle}>📊 Tipo de Análise:</label>
+            <select
+              style={selectStyle}
+              value={tipoAnalise}
+              onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}
+            >
+              <option value="completa">🔍 Análise Completa</option>
+              <option value="fundamentalista">📚 Fundamentalista</option>
+              <option value="tecnica">📈 Análise Técnica</option>
+              <option value="dividendos">💰 Dividendos</option>
+              <option value="fii">🏢 Análise FII</option>
+              <option value="comparar">🆚 Comparar com outro ativo</option>
+              <option value="setor">🏭 Comparar com o setor</option>
+              <option value="resumo">⚡ Resumo Executivo</option>
+            </select>
 
-            {/* DESCRIÇÃO DO PERFIL */}
-            {perfilInvestidor && (
-              <div
-                style={{
-                  background: "rgba(15,23,42,0.95)",
-                  padding: 8,
-                  borderRadius: 9,
-                  border: "1px solid rgba(148,163,184,0.4)",
-                  marginTop: 8,
-                  fontSize: 13,
-                  color: "#9ca3af",
-                }}
-              >
-                <b style={{ color: "#22c55e" }}>Perfil selecionado:</b>{" "}
-                {perfilInvestidor.toUpperCase()}
-              </div>
+            {/* INPUT EXTRA: COMPARAR */}
+            {tipoAnalise === "comparar" && (
+              <>
+                <label style={labelStyle}>🆚 Comparar com:</label>
+                <input
+                  style={inputStyle}
+                  placeholder="VALE3, HGLG11..."
+                  value={ativoComparar}
+                  onChange={(e) => setAtivoComparar(e.target.value)}
+                />
+              </>
             )}
 
-            {/* FOCO */}
-            <div>
-              <label style={labelStyle}>🎯 Foco:</label>
-              <select
-                style={selectStyle}
-                value={focoAnalise}
-                onChange={(e) => setFocoAnalise(e.target.value as FocoAnalise)}
-              >
-                <option value="">Selecione...</option>
-                <option value="dividendos">📤 Dividendos</option>
-                <option value="renda_passiva">🏦 Renda Passiva</option>
-                <option value="valorizacao">📈 Valorização</option>
-                <option value="crescimento">🚀 Crescimento</option>
-              </select>
-            </div>
-
             {/* OBSERVAÇÃO */}
-            <div>
-              <label style={labelStyle}>📝 Observação (opcional):</label>
-              <textarea
-                rows={3}
-                style={{ ...inputStyle, minHeight: 70 }}
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-              />
-            </div>
+            <label style={labelStyle}>📝 Observação (opcional):</label>
+            <textarea
+              style={{ ...inputStyle, minHeight: 70 }}
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+            />
 
             {/* BOTÃO */}
             <button
@@ -517,11 +483,10 @@ export default function InvestGramPage() {
             </button>
           </form>
         ) : (
-          /* ======================
-             RESULTADO
-          ====================== */
           <>
-            <h3 style={{ color: "#22c55e", marginBottom: 8 }}>📊 Resultado da análise</h3>
+            <h3 style={{ color: "#22c55e", marginBottom: 8 }}>
+              📊 Resultado da análise
+            </h3>
 
             <div
               style={{
@@ -538,7 +503,6 @@ export default function InvestGramPage() {
             />
 
             <button
-              type="button"
               onClick={() => setPanelFlip(false)}
               style={{
                 marginTop: 14,
@@ -548,7 +512,6 @@ export default function InvestGramPage() {
                 borderRadius: 9,
                 padding: 10,
                 fontWeight: 600,
-                cursor: "pointer",
                 width: "100%",
               }}
             >
@@ -557,20 +520,6 @@ export default function InvestGramPage() {
           </>
         )}
       </div>
-
-      {/* Modal */}
-      <PerfilModal
-        open={showPerfilModal}
-        onClose={() => setShowPerfilModal(false)}
-        onResultado={(perfil) => setPerfilInvestidor(perfil)}
-      />
     </main>
   );
 }
-
-
-
-
-
-
-
