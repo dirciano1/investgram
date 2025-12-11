@@ -444,7 +444,7 @@ export default function InvestGramPage() {
         </span>
       </h2>
 
-      <div
+     <div
   style={{
     width: "100%",
     maxWidth: 720,
@@ -456,40 +456,26 @@ export default function InvestGramPage() {
 >
   {!panelFlip ? (
     <form onSubmit={handleSubmit}>
-      {/* TIPO INVESTIMENTO */}
-      <label style={labelStyle}>📂 Tipo de investimento:</label>
-      <select
-        style={selectStyle}
-        value={tipoInvestimento}
-        onChange={(e) =>
-          setTipoInvestimento(e.target.value as TipoInvestimento)
-        }
-      >
-        <option value="acoes">📈 Ações</option>
-        <option value="fii">🏢 Fundos Imobiliários</option>
-        <option value="etf">📊 ETFs</option>
-        <option value="renda_fixa">💵 Renda Fixa</option>
-        <option value="montar_carteira">📊 Montar Carteira</option>
-      </select>
+      {/* TIPO INVESTIMENTO + DATA */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <label style={labelStyle}>📂 Tipo de investimento:</label>
+          <select
+            style={selectStyle}
+            value={tipoInvestimento}
+            onChange={(e) =>
+              setTipoInvestimento(e.target.value as TipoInvestimento)
+            }
+          >
+            <option value="acoes">📈 Ações</option>
+            <option value="fii">🏢 Fundos Imobiliários</option>
+            <option value="etf">📊 ETFs</option>
+            <option value="renda_fixa">💵 Renda Fixa</option>
+            <option value="montar_carteira">📊 Montar Carteira</option>
+          </select>
+        </div>
 
-      {/* ATIVO + DATA + PERFIL AUTOMÁTICO */}
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        
-        {/* ATIVO */}
-        {tipoInvestimento !== "montar_carteira" && (
-          <div style={{ flex: 1 }}>
-            <label style={labelStyle}>💼 Ativo:</label>
-            <input
-              style={inputStyle}
-              placeholder="PETR4, HGLG11..."
-              value={ativo}
-              onChange={(e) => setAtivo(e.target.value)}
-            />
-          </div>
-        )}
-
-        {/* DATA */}
-        <div style={{ width: "150px" }}>
+        <div style={{ width: 160, minWidth: 140 }}>
           <label style={labelStyle}>📅 Data:</label>
           <input
             style={{ ...inputStyle, textAlign: "center" }}
@@ -498,34 +484,42 @@ export default function InvestGramPage() {
             placeholder="10/12/2025"
           />
         </div>
-
-        {/* PERFIL AUTOMÁTICO (abre o modal) */}
-        <div style={{ width: "180px" }}>
-          <label style={labelStyle}>🧬 Perfil:</label>
-          <select
-            style={selectStyle}
-            value={perfilInvestidor}
-            onChange={(e) => {
-              if (e.target.value === "descobrir") {
-                setShowPerfilModal(true);
-              } else {
-                setPerfilInvestidor(e.target.value as PerfilInvestidor);
-              }
-            }}
-          >
-            <option value="">Selecione...</option>
-            <option value="conservador">Conservador</option>
-            <option value="moderado">Moderado</option>
-            <option value="agressivo">Agressivo</option>
-
-            {/* abre o modal */}
-            <option value="descobrir">✨ Descobrir automaticamente</option>
-          </select>
-        </div>
-
       </div>
 
-      {/* TIPO DE ANÁLISE */}
+      {/* ATIVO PRINCIPAL */}
+      {tipoInvestimento !== "montar_carteira" && (
+        <>
+          <label style={labelStyle}>💼 Ativo:</label>
+          <input
+            style={inputStyle}
+            placeholder="PETR4, HGLG11..."
+            value={ativo}
+            onChange={(e) => setAtivo(e.target.value)}
+          />
+        </>
+      )}
+
+      {/* PERFIL DO INVESTIDOR (abaixo dos dois) */}
+      <label style={labelStyle}>🧬 Perfil do investidor:</label>
+      <select
+        style={selectStyle}
+        value={perfilInvestidor}
+        onChange={(e) => {
+          if (e.target.value === "descobrir") {
+            setShowPerfilModal(true);
+          } else {
+            setPerfilInvestidor(e.target.value as PerfilInvestidor);
+          }
+        }}
+      >
+        <option value="">Selecione...</option>
+        <option value="conservador">Conservador</option>
+        <option value="moderado">Moderado</option>
+        <option value="agressivo">Agressivo</option>
+        <option value="descobrir">✨ Descobrir automaticamente</option>
+      </select>
+
+      {/* TIPO DE ANÁLISE (abaixo do perfil) */}
       <label style={labelStyle}>📊 Tipo de Análise:</label>
       <select
         style={selectStyle}
@@ -633,6 +627,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
