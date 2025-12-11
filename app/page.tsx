@@ -46,52 +46,48 @@ function formatarAnalise(texto: string) {
     .replace(/^\s*\{.*?"resposta":\s*"/, "")
     .replace(/"}\s*$/, "")
 
-    // Remove **negrito** mas marcamos para azul depois
+    // Negrito → azul elegante
     .replace(/\*\*(.*?)\*\*/g, `<span style="color:#38bdf8;font-weight:600;">$1</span>`)
 
-    // Conserta \n vindo do Gemini
+    // Ajusta \n vindo do Gemini
     .replace(/\\n/g, "\n")
 
-    // Remove quebras duplas → deixa só uma
+    // Remove espaçamento duplo → deixa apenas 1 quebra
     .replace(/\n{2,}/g, "\n")
 
-    // =====================================
-    // TÍTULOS COM EMOJI (EX: 📌 Resumo...)
-    // VERDE + BLOCO + ESPAÇAMENTO
-    // =====================================
+    // ======================================================
+    // TÍTULOS COM EMOJI → VERDE, SEM LINHA ANTES
+    // ======================================================
     .replace(
       /^([📌📊📈⚠️🎯🏛🏢].+)$/gm,
       `<div style="
-        margin-top:18px;
-        margin-bottom:6px;
+        margin-top:12px;
+        margin-bottom:4px;
         color:#22c55e;
         font-weight:700;
         font-size:1.05rem;">
         $1
-      </div>
-      <div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:10px 0;"></div>`
+      </div>`
     )
 
-    // =====================================
-    // TÍTULOS "1. Resumo", "2. Tabela" etc
-    // Azul + bloco
-    // =====================================
+    // ======================================================
+    // TÍTULOS "1. Tabela", "2. Resumo" → AZUL
+    // ======================================================
     .replace(
       /^(\d+\.\s+[^\n]+)$/gm,
       `<div style="
-        margin-top:16px;
-        margin-bottom:6px;
+        margin-top:12px;
+        margin-bottom:4px;
         color:#38bdf8;
         font-weight:700;
         font-size:1.05rem;">
         $1
-      </div>
-      <div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:10px 0;"></div>`
+      </div>`
     )
 
-    // =====================================
-    // Itens com "- " → vira bullet azul
-    // =====================================
+    // ======================================================
+    // Substitui "- item" por bullet azul
+    // ======================================================
     .replace(
       /^- (.*)$/gm,
       `<div style="color:#38bdf8; margin-left:8px; margin-bottom:2px; font-weight:500;">
@@ -99,9 +95,7 @@ function formatarAnalise(texto: string) {
       </div>`
     )
 
-    // =====================================
-    // Itens com "• " já existentes → azul
-    // =====================================
+    // "• item" já existente → deixa azul
     .replace(
       /^•\s*(.*)$/gm,
       `<div style="color:#38bdf8; margin-left:8px; margin-bottom:2px; font-weight:500;">
@@ -109,21 +103,20 @@ function formatarAnalise(texto: string) {
       </div>`
     )
 
-    // =====================================
-    // Linha "---" vira separador real
-    // =====================================
+    // ======================================================
+    // SEPARADOR — AGORA SÓ APÓS OS PARÁGRAFOS
+    // ======================================================
     .replace(
-      /---+/g,
-      `<div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:12px 0;"></div>`
+      /(.*?)(?=<div style="(?:margin-top|color))/gs,
+      (match) =>
+        match.trim()
+          ? match + `<div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:8px 0;"></div>`
+          : match
     )
 
-    // =====================================
-    // Quebras de linha finais
-    // =====================================
+    // Quebras de linha normais
     .replace(/\n/g, "<br>");
 }
-
-
 
 /* ==========================
    MODAL DE PERFIL
@@ -577,6 +570,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
