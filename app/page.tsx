@@ -398,6 +398,7 @@ export default function InvestGramPage() {
       show: 
          tipoInvestimento === "acoes" || 
          tipoInvestimento === "indices" ||
+         tipoInvestimento === "commodities" ||
          tipoInvestimento === "etf",
     },
 
@@ -433,6 +434,9 @@ export default function InvestGramPage() {
         tipoInvestimento === "acoes" ||
         tipoInvestimento === "etf" ||
         tipoInvestimento === "renda_fixa" ||
+        tipoInvestimento === "commodities" ||
+        tipoInvestimento === "indices" ||
+        tipoInvestimento === "globais" ||
         tipoInvestimento === "fii",
         
     },
@@ -685,6 +689,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
