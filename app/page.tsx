@@ -419,7 +419,7 @@ export default function InvestGramPage() {
     {
       value: "comparar",
       label: "🆚 Comparar com outro ativo",
-      show: tipoInvestimento !== "renda_fixa" && tipoInvestimento !== "montar_carteira",
+      show: tipoInvestimento !== "montar_carteira",
     },
 
     // Comparar com setor não existe em renda fixa / commodities / índices / globais
@@ -429,7 +429,9 @@ export default function InvestGramPage() {
       show:
         tipoInvestimento === "acoes" ||
         tipoInvestimento === "etf" ||
+        tipoInvestimento === "renda_fixa" ||
         tipoInvestimento === "fii",
+        
     },
 
     // Sempre pode mostrar resumo
@@ -680,4 +682,5 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
