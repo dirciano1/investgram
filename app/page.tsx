@@ -135,7 +135,7 @@ const cardWrapperStyle: React.CSSProperties = {
   borderRadius: "16px",
   padding: "12px",
   boxShadow: "0 0 18px rgba(34,197,94,0.12)",
-  height: "90vh",
+  maxHeight: "90vh",
   display: "flex",
   flexDirection: "column",
 };
@@ -1343,4 +1343,5 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
