@@ -239,5 +239,10 @@ textarea:focus {
     transform: rotate(360deg);
   }
 }
+@media (max-width: 729px) {
+    body{
+        zoom: 1;
+    }
+
 
 
