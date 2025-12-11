@@ -16,12 +16,19 @@ export async function POST(req: Request) {
       observacao,
     } = body;
 
-    if (!tipoInvestimento || !ativo || !perfilInvestidor || !focoAnalise || !dataAnalise) {
-      return NextResponse.json(
-        { error: "Campos obrigatórios faltando." },
-        { status: 400 }
-      );
-    }
+    // Validar ativo somente quando o tipo NÃO for montar_carteira
+if (
+  !tipoInvestimento ||
+  !perfilInvestidor ||
+  !focoAnalise ||
+  !dataAnalise ||
+  (tipoInvestimento !== "montar_carteira" && (!ativo || ativo.trim() === ""))
+) {
+  return NextResponse.json(
+    { error: "Campos obrigatórios faltando." },
+    { status: 400 }
+  );
+}
 
     if (!process.env.GEMINI_API_KEY) {
       console.error("GEMINI_API_KEY não configurada!");
@@ -127,4 +134,5 @@ Retorne tudo bem formatado com quebras de linha.
     );
   }
 }
+
 
