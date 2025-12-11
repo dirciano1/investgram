@@ -367,47 +367,65 @@ export default function InvestGramPage() {
 
   // regras de exibição NO FRONT para o select tipoAnálise:
   const opcoesAnalise = [
-    { value: "completa", label: "🔍 Análise Completa", show: true },
-    {
-      value: "fundamentalista",
-      label: "📚 Fundamentalista",
-      show:
-        tipoInvestimento === "acoes" ||
-        tipoInvestimento === "fii" ||
-        tipoInvestimento === "etf",
-    },
-    {
-      value: "tecnica",
-      label: "📈 Análise Técnica",
-      show: tipoInvestimento === "acoes" || tipoInvestimento === "etf",
-    },
-    {
-      value: "dividendos",
-      label: "💰 Dividendos",
+  { value: "completa", label: "🔍 Análise Completa", show: true },
+
+  {
+    value: "fundamentalista",
+    label: "📚 Fundamentalista",
+    show:
       tipoInvestimento === "acoes" ||
+      tipoInvestimento === "fii" ||
       tipoInvestimento === "etf" ||
-      tipoInvestimento === "fii",
-    },
-    {
-      value: "fii",
-      label: "🏢 Análise FII",
-      show: tipoInvestimento === "fii",
-    },
-    {
-      value: "comparar",
-      label: "🆚 Comparar com outro ativo",
-      show: true,
-    },
-    {
-      value: "setor",
-      label: "🏭 Comparar com o setor",
-      show: true,
-    },
-    {
-      value: "resumo",
-      label: "⚡ Resumo Executivo",
-      show: true,
-    },
+      tipoInvestimento === "renda_fixa",
+  },
+
+  {
+    value: "tecnica",
+    label: "📈 Análise Técnica",
+    show: tipoInvestimento === "acoes" || tipoInvestimento === "etf",
+  },
+
+  {
+    value: "dividendos",
+    label: "💰 Dividendos",
+    show: 
+       tipoInvestimento === "acoes" ||
+      tipoInvestimento === "fii" ||
+      tipoInvestimento === "etf",
+      
+  },
+
+  {
+    value: "fii",
+    label: "🏢 Análise FII",
+    show: tipoInvestimento === "fii",
+  },
+
+  {
+    value: "comparar",
+    label: "🆚 Comparar com outro ativo",
+    show:
+      tipoInvestimento === "acoes" ||
+      tipoInvestimento === "fii" ||
+      tipoInvestimento === "etf" ||
+      tipoInvestimento === "renda_fixa",
+  },
+
+  {
+    value: "setor",
+    label: "🏭 Comparar com o setor",
+    show:
+      tipoInvestimento === "acoes" ||
+      tipoInvestimento === "fii" ||
+      tipoInvestimento === "etf" ||
+      tipoInvestimento === "renda_fixa",
+  },
+
+  {
+    value: "resumo",
+    label: "⚡ Resumo Executivo",
+    show: true,
+  },
   ];
 
   // se a opção atual ficar inválida após troca de tipoInvestimento → reset
@@ -623,6 +641,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
