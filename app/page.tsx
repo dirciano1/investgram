@@ -5,7 +5,12 @@ import React, { useState, useEffect } from "react";
 /* ==========================
    TIPOS
 ========================== */
-type TipoInvestimento = "acoes" | "fii" | "etf" | "renda_fixa" | "montar_carteira";
+type TipoInvestimento =
+  | "acoes"
+  | "fii"
+  | "etf"
+  | "renda_fixa"
+  | "montar_carteira";
 
 type TipoAnalise =
   | "completa"
@@ -51,7 +56,7 @@ const labelStyle: React.CSSProperties = {
 };
 
 /* ==========================
-   FUNÇÃO formatarAnalise
+   formatarAnalise
 ========================== */
 function formatarAnalise(texto: string) {
   if (!texto) return "";
@@ -69,6 +74,7 @@ function formatarAnalise(texto: string) {
     `<div style="margin-top:12px;margin-bottom:4px;color:#22c55e;font-weight:700;font-size:1.05rem;">$1</div>`
   );
 
+  // Títulos numerados
   t = t.replace(
     /^(\d+\.\s+[^\n]+)$/gm,
     `<div style="margin-top:12px;margin-bottom:4px;color:#38bdf8;font-weight:700;font-size:1.05rem;">$1</div>`
@@ -184,9 +190,7 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
 
     const soma = respostas.reduce((acc, r) => acc + Number(r), 0);
     const perfil =
-      soma <= 7 ? "conservador" :
-      soma <= 11 ? "moderado" :
-      "agressivo";
+      soma <= 7 ? "conservador" : soma <= 11 ? "moderado" : "agressivo";
 
     onResultado(perfil);
     onClose();
@@ -195,44 +199,61 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
   return (
     <div style={modalBackdropStyle}>
       <div style={modalContentStyle}>
-        <h3 style={{ color: "#22c55e", marginBottom: 10 }}>🧠 Descobrir perfil do investidor</h3>
+        <h3 style={{ color: "#22c55e", marginBottom: 10 }}>
+          🧠 Descobrir perfil do investidor
+        </h3>
+
         <p style={{ color: "#9ca3af", fontSize: 13, marginBottom: 12 }}>
           Responda rápido. O InvestGram calculará automaticamente seu perfil.
         </p>
 
-        {/* Perguntas */}
-        {[{
-          label: "1. Qual é o principal objetivo dos seus investimentos?",
-          state: p1, set: setP1,
-          opts: ["Preservar patrimônio", "Crescer com segurança", "Maximizar retorno assumindo risco"]
-        },
-        {
-          label: "2. Por quanto tempo deixará o dinheiro investido?",
-          state: p2, set: setP2,
-          opts: ["Menos de 1 ano", "1 a 5 anos", "Mais de 5 anos"]
-        },
-        {
-          label: "3. Se cair 15% no mês, o que faz?",
-          state: p3, set: setP3,
-          opts: ["Saco tudo", "Espero recuperar", "Compro mais"]
-        },
-        {
-          label: "4. Seu conhecimento em investimentos:",
-          state: p4, set: setP4,
-          opts: ["Baixo", "Médio", "Alto"]
-        },
-        {
-          label: "5. Segurança financeira hoje:",
-          state: p5, set: setP5,
-          opts: [
-            "Dependo do dinheiro, não arrisco",
-            "Tenho estabilidade, arrisco moderado",
-            "Alta estabilidade, aceito riscos maiores"
-          ]
-        }].map((q, i) => (
+        {[
+          {
+            label: "1. Objetivo dos investimentos:",
+            state: p1,
+            set: setP1,
+            opts: [
+              "Preservar patrimônio",
+              "Crescer com segurança",
+              "Maximizar retorno assumindo risco",
+            ],
+          },
+          {
+            label: "2. Horizonte de tempo:",
+            state: p2,
+            set: setP2,
+            opts: ["Menos de 1 ano", "1 a 5 anos", "Mais de 5 anos"],
+          },
+          {
+            label: "3. Reação à queda de 15%:",
+            state: p3,
+            set: setP3,
+            opts: ["Saco tudo", "Espero recuperar", "Compro mais"],
+          },
+          {
+            label: "4. Conhecimento em investimentos:",
+            state: p4,
+            set: setP4,
+            opts: ["Baixo", "Médio", "Alto"],
+          },
+          {
+            label: "5. Segurança financeira atual:",
+            state: p5,
+            set: setP5,
+            opts: [
+              "Dependo do dinheiro",
+              "Tenho estabilidade",
+              "Alta estabilidade",
+            ],
+          },
+        ].map((q, i) => (
           <div key={i} style={{ marginBottom: 10 }}>
             <p style={labelStyle}>{q.label}</p>
-            <select value={q.state} onChange={(e) => q.set(e.target.value)} style={selectStyle}>
+            <select
+              value={q.state}
+              onChange={(e) => q.set(e.target.value)}
+              style={selectStyle}
+            >
               <option value="">Selecione...</option>
               <option value="1">{q.opts[0]}</option>
               <option value="2">{q.opts[1]}</option>
@@ -242,14 +263,19 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
         ))}
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-          <button style={buttonSecondaryStyle} onClick={onClose}>Cancelar</button>
-          <button style={buttonPrimaryStyle} onClick={calcularPerfil}>Confirmar</button>
+          <button style={buttonSecondaryStyle} onClick={onClose}>
+            Cancelar
+          </button>
+          <button style={buttonPrimaryStyle} onClick={calcularPerfil}>
+            Confirmar
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+export default PerfilModal;
 /* ==========================
    PÁGINA PRINCIPAL
 ========================== */
@@ -298,8 +324,10 @@ export default function InvestGramPage() {
     e.preventDefault();
 
     if (!dataAnalise) return alert("⚠️ Informe a data.");
+
     if (tipoInvestimento !== "montar_carteira" && !ativo.trim())
       return alert("⚠️ Informe o ativo.");
+
     if (!perfilInvestidor) return alert("⚠️ Informe o perfil.");
 
     if (tipoAnalise === "comparar" && !ativoComparar.trim())
@@ -334,6 +362,66 @@ export default function InvestGramPage() {
     }
   }
 
+  /* ==========================
+     FILTRAR OPÇÕES DO MENU
+  ========================== */
+
+  // regras de exibição NO FRONT para o select tipoAnálise:
+  const opcoesAnalise = [
+    { value: "completa", label: "🔍 Análise Completa", show: true },
+    {
+      value: "fundamentalista",
+      label: "📚 Fundamentalista",
+      show:
+        tipoInvestimento === "acoes" ||
+        tipoInvestimento === "fii" ||
+        tipoInvestimento === "etf",
+    },
+    {
+      value: "tecnica",
+      label: "📈 Análise Técnica",
+      show: tipoInvestimento === "acoes" || tipoInvestimento === "etf",
+    },
+    {
+      value: "dividendos",
+      label: "💰 Dividendos",
+      show: tipoInvestimento === "acoes",
+    },
+    {
+      value: "fii",
+      label: "🏢 Análise FII",
+      show: tipoInvestimento === "fii",
+    },
+    {
+      value: "comparar",
+      label: "🆚 Comparar com outro ativo",
+      show:
+        tipoInvestimento === "acoes" ||
+        tipoInvestimento === "fii" ||
+        tipoInvestimento === "etf",
+    },
+    {
+      value: "setor",
+      label: "🏭 Comparar com o setor",
+      show:
+        tipoInvestimento === "acoes" ||
+        tipoInvestimento === "etf" ||
+        tipoInvestimento === "fii",
+    },
+    {
+      value: "resumo",
+      label: "⚡ Resumo Executivo",
+      show: true,
+    },
+  ];
+
+  // se a opção atual ficar inválida após troca de tipoInvestimento → reset
+  useEffect(() => {
+    const opcaoAtual = opcoesAnalise.find((o) => o.value === tipoAnalise);
+    if (!opcaoAtual?.show) {
+      setTipoAnalise("completa");
+    }
+  }, [tipoInvestimento]);
   /* ==========================
      UI
   ========================== */
@@ -422,21 +510,20 @@ export default function InvestGramPage() {
               <option value="agressivo">Agressivo</option>
             </select>
 
-            {/* Tipo de Análise */}
+            {/* TIPO DE ANÁLISE */}
             <label style={labelStyle}>📊 Tipo de Análise:</label>
             <select
               style={selectStyle}
               value={tipoAnalise}
               onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}
             >
-              <option value="completa">🔍 Análise Completa</option>
-              <option value="fundamentalista">📚 Fundamentalista</option>
-              <option value="tecnica">📈 Análise Técnica</option>
-              <option value="dividendos">💰 Dividendos</option>
-              <option value="fii">🏢 Análise FII</option>
-              <option value="comparar">🆚 Comparar com outro ativo</option>
-              <option value="setor">🏭 Comparar com o setor</option>
-              <option value="resumo">⚡ Resumo Executivo</option>
+              {opcoesAnalise
+                .filter((o) => o.show)
+                .map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
             </select>
 
             {/* INPUT EXTRA: COMPARAR */}
@@ -483,6 +570,9 @@ export default function InvestGramPage() {
             </button>
           </form>
         ) : (
+          /* ======================
+             RESULTADO
+          ====================== */
           <>
             <h3 style={{ color: "#22c55e", marginBottom: 8 }}>
               📊 Resultado da análise
@@ -520,6 +610,13 @@ export default function InvestGramPage() {
           </>
         )}
       </div>
+
+      {/* Modal */}
+      <PerfilModal
+        open={showPerfilModal}
+        onClose={() => setShowPerfilModal(false)}
+        onResultado={(perfil) => setPerfilInvestidor(perfil)}
+      />
     </main>
   );
 }
