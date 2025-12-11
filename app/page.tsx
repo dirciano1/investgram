@@ -15,6 +15,11 @@ import {
   collection,
   addDoc,
   serverTimestamp,
+  getDocs,
+  query,
+  where,
+  orderBy,
+  limit,
 } from "@/lib/firebase";
 
 /* ==========================
@@ -42,6 +47,16 @@ type TipoAnalise =
   | "resumo";
 
 type PerfilInvestidor = "conservador" | "moderado" | "agressivo";
+
+interface AnaliseHistorico {
+  id: string;
+  tipoInvestimento: string;
+  tipoAnalise: string;
+  ativo: string | null;
+  dataAnalise: string;
+  perfilInvestidor: string;
+  criadoEm?: any;
+}
 
 /* ==========================
    ESTILOS GLOBAIS
@@ -456,6 +471,105 @@ function ConfirmacaoModal({
 }
 
 /* ==========================
+   MODAL HISTÓRICO
+========================== */
+
+interface HistoricoModalProps {
+  open: boolean;
+  onClose: () => void;
+  loading: boolean;
+  itens: AnaliseHistorico[];
+}
+
+function formatarLinhaHistorico(item: AnaliseHistorico) {
+  const ativo =
+    item.tipoInvestimento === "montar_carteira"
+      ? "Carteira personalizada"
+      : item.ativo || "—";
+
+  const data = item.dataAnalise || "Sem data";
+  return `${data} • ${ativo} • ${item.tipoAnalise.toUpperCase()} • ${item.perfilInvestidor}`;
+}
+
+function HistoricoModal({
+  open,
+  onClose,
+  loading,
+  itens,
+}: HistoricoModalProps) {
+  if (!open) return null;
+
+  return (
+    <div style={modalBackdropStyle}>
+      <div
+        style={{
+          ...modalContentStyle,
+          maxWidth: 520,
+          maxHeight: "80vh",
+          overflowY: "auto",
+        }}
+      >
+        <h3 style={{ color: "#22c55e", marginBottom: 10 }}>
+          📜 Histórico de análises
+        </h3>
+
+        {loading ? (
+          <p style={{ color: "#e5e7eb" }}>Carregando histórico...</p>
+        ) : itens.length === 0 ? (
+          <p style={{ color: "#9ca3af" }}>
+            Você ainda não gerou nenhuma análise no InvestGram.
+          </p>
+        ) : (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 8,
+              marginTop: 8,
+            }}
+          >
+            {itens.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  borderRadius: 8,
+                  padding: 10,
+                  background: "rgba(15,23,42,0.9)",
+                  border: "1px solid rgba(34,197,94,0.2)",
+                  fontSize: "0.85rem",
+                  color: "#e5e7eb",
+                }}
+              >
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>
+                  {item.tipoInvestimento === "montar_carteira"
+                    ? "📊 Montar Carteira"
+                    : item.ativo || "Ativo não informado"}
+                </div>
+                <div style={{ color: "#9ca3af" }}>
+                  {formatarLinhaHistorico(item)}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "flex-end",
+            marginTop: 16,
+          }}
+        >
+          <button style={buttonSecondaryStyle} onClick={onClose}>
+            Fechar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ==========================
    PÁGINA PRINCIPAL
 ========================== */
 
@@ -482,6 +596,11 @@ export default function InvestGramPage() {
   const [showPerfilModal, setShowPerfilModal] = useState(false);
   const [panelFlip, setPanelFlip] = useState(false);
   const [showConfirmacao, setShowConfirmacao] = useState(false);
+
+  // histórico
+  const [showHistorico, setShowHistorico] = useState(false);
+  const [historico, setHistorico] = useState<AnaliseHistorico[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
 
   /* ==========================
      AUTH
@@ -596,7 +715,9 @@ export default function InvestGramPage() {
     {
       value: "tecnica",
       label: "📈 Análise Técnica",
-      show:
+      show
+        :
+
         tipoInvestimento === "acoes" ||
         tipoInvestimento === "indices" ||
         tipoInvestimento === "commodities" ||
@@ -771,6 +892,47 @@ export default function InvestGramPage() {
       : ativo.trim() || "Análise de ativos";
 
   /* ==========================
+     HISTÓRICO (CARREGAR DO FIRESTORE)
+  =========================== */
+
+  async function abrirHistorico() {
+    if (!user) return;
+
+    setShowHistorico(true);
+    setHistoricoLoading(true);
+
+    try {
+      const q = query(
+        collection(db, "analisesInvestGram"),
+        where("uid", "==", user.uid),
+        orderBy("criadoEm", "desc"),
+        limit(20)
+      );
+
+      const snap = await getDocs(q);
+      const lista: AnaliseHistorico[] = snap.docs.map((d) => {
+        const data = d.data() as any;
+        return {
+          id: d.id,
+          tipoInvestimento: data.tipoInvestimento,
+          tipoAnalise: data.tipoAnalise,
+          ativo: data.ativo ?? null,
+          dataAnalise: data.dataAnalise ?? "",
+          perfilInvestidor: data.perfilInvestidor ?? "",
+          criadoEm: data.criadoEm,
+        };
+      });
+
+      setHistorico(lista);
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao carregar histórico de análises.");
+    } finally {
+      setHistoricoLoading(false);
+    }
+  }
+
+  /* ==========================
      LOGIN SCREEN (IGUAL TALKGRAM)
   =========================== */
 
@@ -875,7 +1037,7 @@ export default function InvestGramPage() {
         </h2>
 
         <div style={cardWrapperStyle}>
-          {/* HEADER COM NOME + CRÉDITOS + SAIR + ADICIONAR CRÉDITOS */}
+          {/* HEADER COM NOME + CRÉDITOS + SAIR + ADICIONAR CRÉDITOS + HISTÓRICO */}
           <div>
             <div
               style={{
@@ -885,7 +1047,9 @@ export default function InvestGramPage() {
                 alignItems: "center",
               }}
             >
-              <div>👋 Olá, <b>{primeiroNome}</b></div>
+              <div>
+                👋 Olá, <b>{primeiroNome}</b>
+              </div>
 
               <div
                 style={{
@@ -923,6 +1087,22 @@ export default function InvestGramPage() {
             </button>
 
             <div style={{ display: "flex", gap: "10px", marginTop: "14px" }}>
+              <button
+                onClick={abrirHistorico}
+                style={{
+                  flex: 1,
+                  background: "rgba(14,165,233,0.15)",
+                  border: "1px solid #0ea5e955",
+                  borderRadius: "8px",
+                  padding: "8px 0",
+                  color: "#38bdf8",
+                  fontWeight: 600,
+                  cursor: "pointer",
+                }}
+              >
+                📜 Histórico
+              </button>
+
               <button
                 onClick={() => {
                   const url = `https://dirciano1.github.io/neogram/payments?uid=${user.uid}`;
@@ -1152,6 +1332,13 @@ export default function InvestGramPage() {
         onConfirm={gerarAnalise}
         descricao={descricaoAnalise}
         creditos={creditos}
+      />
+
+      <HistoricoModal
+        open={showHistorico}
+        onClose={() => setShowHistorico(false)}
+        loading={historicoLoading}
+        itens={historico}
       />
     </>
   );
