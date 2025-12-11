@@ -14,7 +14,7 @@ body {
   font-family: "Poppins", sans-serif;
   color: #ffffff;
   -webkit-font-smoothing: antialiased;
-   zoom: 0.9;
+   zoom: 0.95;
 }
 
 /* Remove highlight azul em mobile */
@@ -239,4 +239,5 @@ textarea:focus {
     transform: rotate(360deg);
   }
 }
+
 
