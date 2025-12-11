@@ -472,14 +472,37 @@ export default function InvestGramPage() {
               <option value="montar_carteira">📊 Montar Carteira</option>
             </select>
 
-            {/* DATA */}
-            <label style={labelStyle}>📅 Data:</label>
-            <input
-              style={{ ...inputStyle, textAlign: "center" }}
-              value={dataAnalise}
-              onChange={(e) => setDataAnalise(e.target.value)}
-              placeholder="10/12/2025"
-            />
+           {/* DATA + BOTÃO AVALIAR PERFIL */}
+<div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+  <div style={{ flex: 1 }}>
+    <label style={labelStyle}>📅 Data:</label>
+    <input
+      style={{ ...inputStyle, textAlign: "center" }}
+      value={dataAnalise}
+      onChange={(e) => setDataAnalise(e.target.value)}
+      placeholder="10/12/2025"
+    />
+  </div>
+
+  {/* BOTÃO AVALIAR PERFIL */}
+  <button
+    type="button"
+    onClick={() => setShowPerfilModal(true)}
+    style={{
+      background: "rgba(14,165,233,0.15)",
+      border: "1px solid #0ea5e955",
+      color: "#38bdf8",
+      fontWeight: 600,
+      borderRadius: 10,
+      padding: "9px 12px",
+      cursor: "pointer",
+      marginBottom: "10px",
+      whiteSpace: "nowrap",
+    }}
+  >
+    📊 Avaliar Perfil
+  </button>
+</div>
 
             {/* ATIVO PRINCIPAL */}
             {tipoInvestimento !== "montar_carteira" && (
@@ -619,4 +642,5 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
