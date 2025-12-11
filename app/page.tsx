@@ -46,79 +46,83 @@ function formatarAnalise(texto: string) {
     .replace(/^\s*\{.*?"resposta":\s*"/, "")
     .replace(/"}\s*$/, "")
 
-    // Remove **negrito**
-    .replace(/\*\*(.*?)\*\*/g, "$1")
+    // Remove **negrito** mas marcamos para azul depois
+    .replace(/\*\*(.*?)\*\*/g, `<span style="color:#38bdf8;font-weight:600;">$1</span>`)
 
     // Conserta \n vindo do Gemini
     .replace(/\\n/g, "\n")
+
+    // Remove quebras duplas → deixa só uma
     .replace(/\n{2,}/g, "\n")
 
-    // ============================
-    //  TÍTULOS "1. Resumo", "2. Tabela" — Azul + linha
-    // ============================
+    // =====================================
+    // TÍTULOS COM EMOJI (EX: 📌 Resumo...)
+    // VERDE + BLOCO + ESPAÇAMENTO
+    // =====================================
+    .replace(
+      /^([📌📊📈⚠️🎯🏛🏢].+)$/gm,
+      `<div style="
+        margin-top:18px;
+        margin-bottom:6px;
+        color:#22c55e;
+        font-weight:700;
+        font-size:1.05rem;">
+        $1
+      </div>
+      <div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:10px 0;"></div>`
+    )
+
+    // =====================================
+    // TÍTULOS "1. Resumo", "2. Tabela" etc
+    // Azul + bloco
+    // =====================================
     .replace(
       /^(\d+\.\s+[^\n]+)$/gm,
       `<div style="
-        margin-top:14px;
+        margin-top:16px;
         margin-bottom:6px;
-        padding-bottom:4px;
-        border-bottom:1px solid #1e293b;
         color:#38bdf8;
         font-weight:700;
-        font-size:1rem;">
+        font-size:1.05rem;">
         $1
-      </div>`
+      </div>
+      <div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:10px 0;"></div>`
     )
 
-    // ============================
-    //  ITENS COM “•” em azul universal (#38bdf8)
-    // ============================
-    .replace(
-      /^•\s*(.*)$/gm,
-      `<div style="
-        color:#38bdf8;
-        margin-left:10px;
-        margin-bottom:2px;   /* menor espaço entre itens */
-        font-weight:500;">
-        • $1
-      </div>`
-    )
-
-    // ============================
-    // Linhas com "-"
-    // ============================
+    // =====================================
+    // Itens com "- " → vira bullet azul
+    // =====================================
     .replace(
       /^- (.*)$/gm,
-      `<div style="
-        color:#38bdf8;
-        margin-left:10px;
-        margin-bottom:2px;
-        font-weight:500;">
+      `<div style="color:#38bdf8; margin-left:8px; margin-bottom:2px; font-weight:500;">
         • $1
       </div>`
     )
 
-    // ============================
-    // Emojis importantes → destacam títulos
-    // ============================
+    // =====================================
+    // Itens com "• " já existentes → azul
+    // =====================================
     .replace(
-      /(📌|📊|📈|⚠️|🎯|🧠)/g,
-      `<span style="color:#38bdf8;font-weight:700;">$1</span>`
+      /^•\s*(.*)$/gm,
+      `<div style="color:#38bdf8; margin-left:8px; margin-bottom:2px; font-weight:500;">
+        • $1
+      </div>`
     )
 
-    // ============================
-    // Separador "---"
-    // ============================
+    // =====================================
+    // Linha "---" vira separador real
+    // =====================================
     .replace(
       /---+/g,
-      `<hr style="border-color:#1f2937;margin:10px 0;opacity:0.4;">`
+      `<div style="border-bottom:1px solid rgba(56,189,248,0.35); margin:12px 0;"></div>`
     )
 
-    // ============================
-    // Quebras de linha
-    // ============================
+    // =====================================
+    // Quebras de linha finais
+    // =====================================
     .replace(/\n/g, "<br>");
 }
+
 
 
 /* ==========================
@@ -573,6 +577,7 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
 
