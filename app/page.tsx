@@ -275,7 +275,6 @@ function PerfilModal({ open, onClose, onResultado }: PerfilModalProps) {
   );
 }
 
-export default PerfilModal;
 /* ==========================
    PÁGINA PRINCIPAL
 ========================== */
@@ -620,3 +619,4 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
