@@ -445,193 +445,184 @@ export default function InvestGramPage() {
       </h2>
 
       <div
+  style={{
+    width: "100%",
+    maxWidth: 720,
+    background: "rgba(17,24,39,0.85)",
+    border: "1px solid rgba(34,197,94,0.25)",
+    borderRadius: 16,
+    padding: 16,
+  }}
+>
+  {!panelFlip ? (
+    <form onSubmit={handleSubmit}>
+      {/* TIPO INVESTIMENTO */}
+      <label style={labelStyle}>📂 Tipo de investimento:</label>
+      <select
+        style={selectStyle}
+        value={tipoInvestimento}
+        onChange={(e) =>
+          setTipoInvestimento(e.target.value as TipoInvestimento)
+        }
+      >
+        <option value="acoes">📈 Ações</option>
+        <option value="fii">🏢 Fundos Imobiliários</option>
+        <option value="etf">📊 ETFs</option>
+        <option value="renda_fixa">💵 Renda Fixa</option>
+        <option value="montar_carteira">📊 Montar Carteira</option>
+      </select>
+
+      {/* ATIVO + DATA + PERFIL AUTOMÁTICO */}
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        
+        {/* ATIVO */}
+        {tipoInvestimento !== "montar_carteira" && (
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>💼 Ativo:</label>
+            <input
+              style={inputStyle}
+              placeholder="PETR4, HGLG11..."
+              value={ativo}
+              onChange={(e) => setAtivo(e.target.value)}
+            />
+          </div>
+        )}
+
+        {/* DATA */}
+        <div style={{ width: "150px" }}>
+          <label style={labelStyle}>📅 Data:</label>
+          <input
+            style={{ ...inputStyle, textAlign: "center" }}
+            value={dataAnalise}
+            onChange={(e) => setDataAnalise(e.target.value)}
+            placeholder="10/12/2025"
+          />
+        </div>
+
+        {/* PERFIL AUTOMÁTICO (abre o modal) */}
+        <div style={{ width: "180px" }}>
+          <label style={labelStyle}>🧬 Perfil:</label>
+          <select
+            style={selectStyle}
+            value={perfilInvestidor}
+            onChange={(e) => {
+              if (e.target.value === "descobrir") {
+                setShowPerfilModal(true);
+              } else {
+                setPerfilInvestidor(e.target.value as PerfilInvestidor);
+              }
+            }}
+          >
+            <option value="">Selecione...</option>
+            <option value="conservador">Conservador</option>
+            <option value="moderado">Moderado</option>
+            <option value="agressivo">Agressivo</option>
+
+            {/* abre o modal */}
+            <option value="descobrir">✨ Descobrir automaticamente</option>
+          </select>
+        </div>
+
+      </div>
+
+      {/* TIPO DE ANÁLISE */}
+      <label style={labelStyle}>📊 Tipo de Análise:</label>
+      <select
+        style={selectStyle}
+        value={tipoAnalise}
+        onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}
+      >
+        {opcoesAnalise
+          .filter((o) => o.show)
+          .map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+      </select>
+
+      {/* INPUT EXTRA: COMPARAR */}
+      {tipoAnalise === "comparar" && (
+        <>
+          <label style={labelStyle}>🆚 Comparar com:</label>
+          <input
+            style={inputStyle}
+            placeholder="VALE3, HGLG11..."
+            value={ativoComparar}
+            onChange={(e) => setAtivoComparar(e.target.value)}
+          />
+        </>
+      )}
+
+      {/* OBSERVAÇÃO */}
+      <label style={labelStyle}>📝 Observação (opcional):</label>
+      <textarea
+        style={{ ...inputStyle, minHeight: 70 }}
+        value={observacao}
+        onChange={(e) => setObservacao(e.target.value)}
+      />
+
+      {/* BOTÃO */}
+      <button
+        type="submit"
+        disabled={carregando}
         style={{
           width: "100%",
-          maxWidth: 720,
-          background: "rgba(17,24,39,0.85)",
-          border: "1px solid rgba(34,197,94,0.25)",
-          borderRadius: 16,
-          padding: 16,
+          padding: 12,
+          marginTop: 8,
+          borderRadius: 12,
+          border: "none",
+          background: carregando
+            ? "#15803d"
+            : "linear-gradient(90deg,#22c55e,#16a34a)",
+          color: "#fff",
+          fontWeight: 700,
+          fontSize: "1.05rem",
+          cursor: carregando ? "not-allowed" : "pointer",
         }}
       >
-        {!panelFlip ? (
-          <form onSubmit={handleSubmit}>
-            {/* TIPO INVESTIMENTO */}
-            <label style={labelStyle}>📂 Tipo de investimento:</label>
-            <select
-              style={selectStyle}
-              value={tipoInvestimento}
-              onChange={(e) =>
-                setTipoInvestimento(e.target.value as TipoInvestimento)
-              }
-            >
-              <option value="acoes">📈 Ações</option>
-              <option value="fii">🏢 Fundos Imobiliários</option>
-              <option value="etf">📊 ETFs</option>
-              <option value="renda_fixa">💵 Renda Fixa</option>
-              <option value="montar_carteira">📊 Montar Carteira</option>
-            </select>
+        {carregando ? carregandoFrase : "Analisar ativo"}
+      </button>
+    </form>
+  ) : (
+    <>
+      <h3 style={{ color: "#22c55e", marginBottom: 8 }}>
+        📊 Resultado da análise
+      </h3>
 
-           {/* DATA + BOTÃO AVALIAR PERFIL */}
-<div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-  <div style={{ flex: 1 }}>
-    <label style={labelStyle}>📅 Data:</label>
-    <input
-      style={{ ...inputStyle, textAlign: "center" }}
-      value={dataAnalise}
-      onChange={(e) => setDataAnalise(e.target.value)}
-      placeholder="10/12/2025"
-    />
-  </div>
+      <div
+        style={{
+          background: "rgba(11,19,36,0.9)",
+          border: "1px solid rgba(34,197,94,0.25)",
+          borderRadius: 10,
+          padding: 12,
+          maxHeight: 340,
+          overflowY: "auto",
+          fontSize: "0.93rem",
+          lineHeight: 1.5,
+        }}
+        dangerouslySetInnerHTML={{ __html: formatarAnalise(resultado) }}
+      />
 
-  {/* BOTÃO AVALIAR PERFIL */}
-  <button
-    type="button"
-    onClick={() => setShowPerfilModal(true)}
-    style={{
-      background: "rgba(14,165,233,0.15)",
-      border: "1px solid #0ea5e955",
-      color: "#38bdf8",
-      fontWeight: 600,
-      borderRadius: 10,
-      padding: "9px 12px",
-      cursor: "pointer",
-      marginBottom: "10px",
-      whiteSpace: "nowrap",
-    }}
-  >
-    📊 Avaliar Perfil
-  </button>
+      <button
+        onClick={() => setPanelFlip(false)}
+        style={{
+          marginTop: 14,
+          background: "rgba(14,165,233,0.18)",
+          border: "1px solid #0ea5e955",
+          color: "#38bdf8",
+          borderRadius: 9,
+          padding: 10,
+          fontWeight: 600,
+          width: "100%",
+        }}
+      >
+        ↩ Nova análise
+      </button>
+    </>
+  )}
 </div>
 
-            {/* ATIVO PRINCIPAL */}
-            {tipoInvestimento !== "montar_carteira" && (
-              <>
-                <label style={labelStyle}>💼 Ativo:</label>
-                <input
-                  style={inputStyle}
-                  placeholder="PETR4, HGLG11..."
-                  value={ativo}
-                  onChange={(e) => setAtivo(e.target.value)}
-                />
-              </>
-            )}
-
-            {/* PERFIL */}
-            <label style={labelStyle}>🧬 Perfil:</label>
-            <select
-              style={selectStyle}
-              value={perfilInvestidor}
-              onChange={(e) =>
-                setPerfilInvestidor(e.target.value as PerfilInvestidor)
-              }
-            >
-              <option value="">Selecione...</option>
-              <option value="conservador">Conservador</option>
-              <option value="moderado">Moderado</option>
-              <option value="agressivo">Agressivo</option>
-            </select>
-
-            {/* TIPO DE ANÁLISE */}
-            <label style={labelStyle}>📊 Tipo de Análise:</label>
-            <select
-              style={selectStyle}
-              value={tipoAnalise}
-              onChange={(e) => setTipoAnalise(e.target.value as TipoAnalise)}
-            >
-              {opcoesAnalise
-                .filter((o) => o.show)
-                .map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-            </select>
-
-            {/* INPUT EXTRA: COMPARAR */}
-            {tipoAnalise === "comparar" && (
-              <>
-                <label style={labelStyle}>🆚 Comparar com:</label>
-                <input
-                  style={inputStyle}
-                  placeholder="VALE3, HGLG11..."
-                  value={ativoComparar}
-                  onChange={(e) => setAtivoComparar(e.target.value)}
-                />
-              </>
-            )}
-
-            {/* OBSERVAÇÃO */}
-            <label style={labelStyle}>📝 Observação (opcional):</label>
-            <textarea
-              style={{ ...inputStyle, minHeight: 70 }}
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-            />
-
-            {/* BOTÃO */}
-            <button
-              type="submit"
-              disabled={carregando}
-              style={{
-                width: "100%",
-                padding: 12,
-                marginTop: 8,
-                borderRadius: 12,
-                border: "none",
-                background: carregando
-                  ? "#15803d"
-                  : "linear-gradient(90deg,#22c55e,#16a34a)",
-                color: "#fff",
-                fontWeight: 700,
-                fontSize: "1.05rem",
-                cursor: carregando ? "not-allowed" : "pointer",
-              }}
-            >
-              {carregando ? carregandoFrase : "Analisar ativo"}
-            </button>
-          </form>
-        ) : (
-          /* ======================
-             RESULTADO
-          ====================== */
-          <>
-            <h3 style={{ color: "#22c55e", marginBottom: 8 }}>
-              📊 Resultado da análise
-            </h3>
-
-            <div
-              style={{
-                background: "rgba(11,19,36,0.9)",
-                border: "1px solid rgba(34,197,94,0.25)",
-                borderRadius: 10,
-                padding: 12,
-                maxHeight: 340,
-                overflowY: "auto",
-                fontSize: "0.93rem",
-                lineHeight: 1.5,
-              }}
-              dangerouslySetInnerHTML={{ __html: formatarAnalise(resultado) }}
-            />
-
-            <button
-              onClick={() => setPanelFlip(false)}
-              style={{
-                marginTop: 14,
-                background: "rgba(14,165,233,0.18)",
-                border: "1px solid #0ea5e955",
-                color: "#38bdf8",
-                borderRadius: 9,
-                padding: 10,
-                fontWeight: 600,
-                width: "100%",
-              }}
-            >
-              ↩ Nova análise
-            </button>
-          </>
-        )}
-      </div>
 
       {/* Modal */}
       <PerfilModal
@@ -642,5 +633,6 @@ export default function InvestGramPage() {
     </main>
   );
 }
+
 
 
