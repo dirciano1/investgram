@@ -1023,6 +1023,7 @@ export default function InvestGramPage() {
             justifyContent: "center",
             fontSize: "1.3rem",
             marginTop: 22,
+            margin-bottom:22px;
           }}
         >
           <img
@@ -1343,6 +1344,7 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
 
 
