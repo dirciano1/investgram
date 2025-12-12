@@ -1021,7 +1021,7 @@ export default function InvestGramPage() {
             alignItems: "center",
             gap: "8px",
             justifyContent: "center",
-            fontSize: "1.4rem",
+            fontSize: "1.3rem",
             marginTop: 22,
           }}
         >
@@ -1343,6 +1343,7 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
 
 
