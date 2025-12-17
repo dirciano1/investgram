@@ -1288,7 +1288,7 @@ export default function InvestGramPage() {
                     border: "1px solid rgba(34,197,94,0.25)",
                     borderRadius: 10,
                     padding: 12,
-                    maxHeight: 340,
+                    maxHeight: 320,
                     overflowY: "auto",
                     fontSize: "0.93rem",
                     lineHeight: 1.5,
@@ -1344,6 +1344,7 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
 
 
