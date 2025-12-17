@@ -585,6 +585,7 @@ export default function InvestGramPage() {
   const [ativo, setAtivo] = useState("");
   const [ativoComparar, setAtivoComparar] = useState("");
   const [dataAnalise, setDataAnalise] = useState("");
+  const [dataPagamentoProventos, setDataPagamentoProventos] = useState("");
   const [perfilInvestidor, setPerfilInvestidor] =
     useState<PerfilInvestidor | "">("");
   const [observacao, setObservacao] = useState("");
@@ -836,15 +837,15 @@ export default function InvestGramPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          tipoInvestimento,
-          tipoAnalise,
-          ativo,
-          ativoComparar:
-            tipoAnalise === "comparar" ? ativoComparar.trim() : null,
-          dataAnalise,
-          perfilInvestidor,
-          observacao,
-        }),
+  tipoInvestimento,
+  tipoAnalise,
+  ativo,
+  ativoComparar: tipoAnalise === "comparar" ? ativoComparar.trim() : null,
+  dataAnalise,
+  perfilInvestidor,
+  observacao,
+  dataPagamentoProventos: dataPagamentoProventos || null,
+}),
       });
 
       if (!res.ok) throw new Error("Erro na API");
@@ -1136,45 +1137,46 @@ export default function InvestGramPage() {
             {!panelFlip ? (
               <form onSubmit={handleSubmit}>
                 {/* TIPO + DATA */}
-                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                  <div style={{ flex: 1, minWidth: 220 }}>
-                    <label style={labelStyle}>📂 Tipo de investimento:</label>
-                    <select
-                      style={selectStyle}
-                      value={tipoInvestimento}
-                      onChange={(e) =>
-                        setTipoInvestimento(
-                          e.target.value as TipoInvestimento
-                        )
-                      }
-                    >
-                      <option value="acoes">📈 Ações</option>
-                      <option value="fii">🏢 Fundos Imobiliários</option>
-                      <option value="etf">📊 ETFs</option>
-                      <option value="renda_fixa">💵 Renda Fixa</option>
-                      <option value="indices">
-                        📉 Índices (IBOV, SP500…)
-                      </option>
-                      <option value="commodities">
-                        🌾 Commodities (Ouro, Petróleo…)
-                      </option>
-                      <option value="globais">🌍 Ativos Globais</option>
-                      <option value="montar_carteira">
-                        📊 Montar Carteira
-                      </option>
-                    </select>
-                  </div>
+<div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+  <div style={{ flex: 1, minWidth: 220 }}>
+    <label style={labelStyle}>📂 Tipo de investimento:</label>
+    <select
+      style={selectStyle}
+      value={tipoInvestimento}
+      onChange={(e) => setTipoInvestimento(e.target.value as TipoInvestimento)}
+    >
+      <option value="acoes">📈 Ações</option>
+      <option value="fii">🏢 Fundos Imobiliários</option>
+      <option value="etf">📊 ETFs</option>
+      <option value="renda_fixa">💵 Renda Fixa</option>
+      <option value="indices">📉 Índices (IBOV, SP500…)</option>
+      <option value="commodities">🌾 Commodities (Ouro, Petróleo…)</option>
+      <option value="globais">🌍 Ativos Globais</option>
+      <option value="montar_carteira">📊 Montar Carteira</option>
+    </select>
+  </div>
 
-                  <div style={{ width: 160, minWidth: 140 }}>
-                    <label style={labelStyle}>📅 Data:</label>
-                    <input
-                      style={{ ...inputStyle, textAlign: "center" }}
-                      value={dataAnalise}
-                      onChange={(e) => setDataAnalise(e.target.value)}
-                      placeholder="10/12/2025"
-                    />
-                  </div>
-                </div>
+  <div style={{ width: 160, minWidth: 140 }}>
+    <label style={labelStyle}>📅 Data:</label>
+    <input
+      style={{ ...inputStyle, textAlign: "center" }}
+      value={dataAnalise}
+      onChange={(e) => setDataAnalise(e.target.value)}
+      placeholder="10/12/2025"
+    />
+  </div>
+
+  <div style={{ width: 200, minWidth: 170 }}>
+    <label style={labelStyle}>💸 Pagamento (proventos):</label>
+    <input
+      style={{ ...inputStyle, textAlign: "center" }}
+      value={dataPagamentoProventos}
+      onChange={(e) => setDataPagamentoProventos(e.target.value)}
+      placeholder="25/01/2026"
+    />
+  </div>
+</div>
+
 
                 {/* ATIVO PRINCIPAL */}
                 {tipoInvestimento !== "montar_carteira" && (
@@ -1344,6 +1346,7 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
 
 
