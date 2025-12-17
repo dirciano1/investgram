@@ -8,6 +8,16 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
  * - Busca dados direto do Investidor10 via URL (rápido)
  * - NÃO usa Google Search (grounding) por padrão (evita timeout)
  * - Passa o texto extraído do Investidor10 para o Gemini e obriga a usar só isso
+ *
+ * ✅ Agora suporta links diretos do Investidor10 para:
+ * - AÇÕES:        /acoes/{ticker}/
+ * - FIIs:         /fiis/{ticker}/
+ * - ETFs:         /etfs/{ticker}/
+ * - ÍNDICES:      /indices/{slug}/
+ * - GLOBAIS:      /stocks/{slug}/
+ * - COMMODITIES:  /commodities/{slug}/
+ *
+ * ⚠️ Renda fixa (CDB/LCI/LCA) não tem "ticker" padrão no Investidor10 → NÃO buscamos por URL.
  */
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -51,7 +61,7 @@ export async function POST(req: Request) {
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     /* ================================
-       NORMALIZA TICKER (ajuda muito em FIIs/ETFs)
+       NORMALIZAÇÃO
     ================================= */
     const ativoNorm =
       tipoInvestimento === "montar_carteira"
@@ -64,16 +74,30 @@ export async function POST(req: Request) {
         : "";
 
     /* ================================
-       BUSCA INVESTIDOR10 (URL direta)
+       BUSCA INVESTIDOR10 (URL direta + fallback)
     ================================= */
+    const deveBuscarInvestidor10 =
+      tipoInvestimento === "acoes" ||
+      tipoInvestimento === "fii" ||
+      tipoInvestimento === "etf" ||
+      tipoInvestimento === "indices" ||
+      tipoInvestimento === "globais" ||
+      tipoInvestimento === "commodities";
+
     const i10Principal =
-      tipoInvestimento === "montar_carteira"
+      tipoInvestimento === "montar_carteira" || !deveBuscarInvestidor10
         ? null
-        : await pegarHtmlInvestidor10(tipoInvestimento, ativoNorm);
+        : await pegarHtmlInvestidor10Auto({
+            ativo: ativoNorm,
+            tipoInvestimento,
+          });
 
     const i10Comparar =
-      tipoAnalise === "comparar" && compararNorm
-        ? await pegarHtmlInvestidor10(tipoInvestimento, compararNorm)
+      deveBuscarInvestidor10 && tipoAnalise === "comparar" && compararNorm
+        ? await pegarHtmlInvestidor10Auto({
+            ativo: compararNorm,
+            tipoInvestimento,
+          })
         : null;
 
     const textoI10Principal =
@@ -103,7 +127,7 @@ Regras:
 - Se um dado não estiver presente no bloco do Investidor10, escreva **N/D**.
 - Se a coleta falhar (Status FALHOU), você deve:
   1) avisar em 1 linha que a coleta falhou,
-  2) pedir para o usuário confirmar o ticker (ex: HGLG11, PETR4, IVVB11),
+  2) pedir para o usuário confirmar o ticker/slug,
   3) NÃO preencher tabela inteira com N/D (responda curto e pare).
 
 Formatação:
@@ -123,7 +147,13 @@ DADOS DO INVESTIDOR10 (ÚNICA FONTE)
 
 [ATIVO PRINCIPAL]
 URL: ${i10Principal?.url || "N/D"}
-Status: ${i10Principal?.ok ? "OK" : `FALHOU${i10Principal?.erro ? " (" + i10Principal.erro + ")" : ""}`}
+Status: ${
+      i10Principal?.ok
+        ? "OK"
+        : `FALHOU${
+            i10Principal?.erro ? " (" + i10Principal.erro + ")" : ""
+          }`
+    }
 CONTEÚDO EXTRAÍDO:
 ${textoI10Principal || "N/D"}
 
@@ -132,7 +162,11 @@ ${
     ? `
 [ATIVO PARA COMPARAR]
 URL: ${i10Comparar?.url || "N/D"}
-Status: ${i10Comparar?.ok ? "OK" : `FALHOU${i10Comparar?.erro ? " (" + i10Comparar.erro + ")" : ""}`}
+Status: ${
+        i10Comparar?.ok
+          ? "OK"
+          : `FALHOU${i10Comparar?.erro ? " (" + i10Comparar.erro + ")" : ""}`
+      }
 CONTEÚDO EXTRAÍDO:
 ${textoI10Comparar || "N/D"}
 `
@@ -150,7 +184,29 @@ Gere a resposta usando SOMENTE o bloco do Investidor10 acima, seguindo a estrutu
     ================================= */
     let promptFinal = "";
 
-    if (tipoInvestimento === "montar_carteira") {
+    // ✅ Renda fixa: não tenta Investidor10 (não existe ticker padrão)
+    if (tipoInvestimento === "renda_fixa") {
+      promptFinal = `
+Você é o **InvestGram**, especialista em renda fixa no Brasil.
+
+Regras:
+- Não invente taxas, rentabilidades ou "melhor CDB do mercado".
+- Se faltar informação, peça o que falta em checklist (bem direto).
+- Foque: indexador (CDI/IPCA/Prefixado), prazo, liquidez, carência, IR, FGC, risco do emissor.
+
+Dados do usuário:
+- Produto (descrição): ${ativo || "N/D"}
+- Data: ${dataAnalise}
+- Observação: ${observacao || "Nenhuma"}
+- Perfil: ${perfilInvestidor}
+
+Entregue:
+📌 Resumo do produto (com base no que foi informado)
+📊 Checklist do que falta (emissor, %CDI/taxa, prazo, liquidez, FGC, carência, etc.)
+⚠️ Riscos e armadilhas comuns
+🎯 Conclusão para o perfil ${perfilInvestidor}
+`;
+    } else if (tipoInvestimento === "montar_carteira") {
       promptFinal = `
 Você é o **InvestGram**, IA especialista em investimentos brasileiros.
 
@@ -278,12 +334,32 @@ Gere um **resumo executivo** com no máximo 6 linhas:
     }
 
     /* ================================
-       CHAMADA GEMINI COM TIMEOUT (para evitar travar)
+       SE COLETA FALHOU E ERA PRA BUSCAR, RESPONDE CURTO (evita gastar token)
     ================================= */
-    const resposta = await gerarGeminiComTimeout(() => model.generateContent(promptFinal), 25000);
+    if (
+      deveBuscarInvestidor10 &&
+      tipoInvestimento !== "montar_carteira" &&
+      tipoInvestimento !== "renda_fixa" &&
+      (!i10Principal || !i10Principal.ok)
+    ) {
+      return respostaStream(
+        `❌ A coleta de dados para o ativo principal (${ativoNorm || ativo || "N/D"}) falhou.\n\n` +
+          `URL tentada: ${i10Principal?.url || "N/D"}\n` +
+          `Motivo: ${i10Principal?.erro || "N/D"}\n\n` +
+          `Confirme o ticker/slug e tente novamente.\n` +
+          `Exemplos: HGLG11, PETR4, IVVB11, IBOV, SPX, NVDA, OURO.`
+      );
+    }
+
+    /* ================================
+       CHAMADA GEMINI COM TIMEOUT
+    ================================= */
+    const resposta = await gerarGeminiComTimeout(
+      () => model.generateContent(promptFinal),
+      25000
+    );
 
     const texto = await resposta.response.text();
-
     return respostaStream(texto);
   } catch (err) {
     console.error("Erro InvestGram API:", err);
@@ -295,8 +371,14 @@ Gere um **resumo executivo** com no máximo 6 linhas:
    INVESTIDOR10 HELPERS
 ================================ */
 
-function normUrl(t?: string) {
-  return (t || "").trim().toLowerCase().replace(/\s+/g, "");
+function normSlug(input?: string) {
+  return (input || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove acentos
+    .replace(/&/g, "and")
+    .replace(/[^\w]/g, ""); // remove símbolos/espacos
 }
 
 function ajustarTicker(tipo: string, t?: string) {
@@ -309,17 +391,55 @@ function ajustarTicker(tipo: string, t?: string) {
   return x;
 }
 
-function montarUrlInvestidor10(tipoInvestimento: string, ticker: string) {
+function slugPorTipo(tipo: string, ativo: string) {
+  const s = normSlug(ativo);
+  if (!s) return "";
+
+  if (tipo === "indices") {
+    const aliases: Record<string, string> = {
+      ibov: "ibov",
+      ibovespa: "ibov",
+      spx: "spx",
+      sp500: "spx",
+      sandp500: "spx",
+      nasdaq: "ixic",
+      ixic: "ixic",
+      dowjones: "dji",
+      dji: "dji",
+    };
+    return aliases[s] || s;
+  }
+
+  if (tipo === "commodities") {
+    const aliases: Record<string, string> = {
+      ouro: "ouro",
+      gold: "ouro",
+      petroleo: "petroleo",
+      oil: "petroleo",
+      brent: "brent",
+      wti: "wti",
+    };
+    return aliases[s] || s;
+  }
+
+  // globais normalmente é o ticker (nvda, aapl, msft…)
+  return s;
+}
+
+function montarUrlInvestidor10(tipoInvestimento: string, ativo: string) {
   const base = "https://investidor10.com.br";
-  const tk = normUrl(ticker);
-  if (!tk) return null;
+  const slug = slugPorTipo(tipoInvestimento, ativo);
+  if (!slug) return null;
 
-  if (tipoInvestimento === "fii") return `${base}/fiis/${tk}/`;
-  if (tipoInvestimento === "acoes") return `${base}/acoes/${tk}/`;
-  if (tipoInvestimento === "etf") return `${base}/etfs/${tk}/`;
+  if (tipoInvestimento === "fii") return `${base}/fiis/${slug}/`;
+  if (tipoInvestimento === "acoes") return `${base}/acoes/${slug}/`;
+  if (tipoInvestimento === "etf") return `${base}/etfs/${slug}/`;
 
-  // outros tipos: tenta como ações (você pode melhorar depois)
-  return `${base}/acoes/${tk}/`;
+  if (tipoInvestimento === "indices") return `${base}/indices/${slug}/`;
+  if (tipoInvestimento === "globais") return `${base}/stocks/${slug}/`;
+  if (tipoInvestimento === "commodities") return `${base}/commodities/${slug}/`;
+
+  return null;
 }
 
 async function fetchComTimeout(url: string, ms = 12000) {
@@ -340,22 +460,52 @@ async function fetchComTimeout(url: string, ms = 12000) {
   }
 }
 
-async function pegarHtmlInvestidor10(tipoInvestimento: string, ticker: string) {
-  const url = montarUrlInvestidor10(tipoInvestimento, ticker);
-  if (!url) return { ok: false, url: "N/D", html: "", erro: "Ticker inválido" };
+async function pegarHtmlInvestidor10Auto(opts: {
+  ativo: string;
+  tipoInvestimento: string;
+}) {
+  const base = "https://investidor10.com.br";
+  const slugGeral = normSlug(opts.ativo);
+  if (!slugGeral)
+    return { ok: false, url: "N/D", html: "", erro: "Ativo inválido" };
 
-  try {
-    const res = await fetchComTimeout(url, 12000);
+  const tentativas: string[] = [];
+  const push = (u: string | null) => {
+    if (u && !tentativas.includes(u)) tentativas.push(u);
+  };
 
-    if (!res.ok) {
-      return { ok: false, url, html: "", erro: `HTTP ${res.status}` };
-    }
+  // 1) tenta pelo tipo selecionado (URL direta correta)
+  push(montarUrlInvestidor10(opts.tipoInvestimento, opts.ativo));
 
-    const html = await res.text();
-    return { ok: true, url, html, erro: "" };
-  } catch (e: any) {
-    return { ok: false, url, html: "", erro: e?.message || "Falha no fetch" };
+  // 2) fallback (se usuário escolheu o tipo errado)
+  if (slugGeral.endsWith("11")) {
+    push(`${base}/fiis/${slugGeral}/`);
+    push(`${base}/etfs/${slugGeral}/`);
   }
+
+  // tenta outros caminhos comuns
+  push(`${base}/acoes/${slugGeral}/`);
+  push(`${base}/fiis/${slugGeral}/`);
+  push(`${base}/etfs/${slugGeral}/`);
+  push(`${base}/indices/${slugGeral}/`);
+  push(`${base}/stocks/${slugGeral}/`);
+  push(`${base}/commodities/${slugGeral}/`);
+
+  let lastErro = "";
+  for (const url of tentativas) {
+    try {
+      const res = await fetchComTimeout(url, 12000);
+      if (res.ok) {
+        const html = await res.text();
+        return { ok: true, url, html, erro: "" };
+      }
+      lastErro = `HTTP ${res.status}`;
+    } catch (e: any) {
+      lastErro = e?.message || "Falha no fetch";
+    }
+  }
+
+  return { ok: false, url: tentativas[0] || "N/D", html: "", erro: lastErro };
 }
 
 function htmlParaTexto(html: string) {
@@ -379,11 +529,6 @@ function htmlParaTexto(html: string) {
 /* ================================
    GEMINI TIMEOUT HELPER
 ================================ */
-
-/**
- * O SDK do @google/generative-ai não suporta AbortSignal de forma consistente.
- * Então fazemos um "race" com timeout para garantir que a função não fique presa.
- */
 async function gerarGeminiComTimeout<T>(fn: () => Promise<T>, ms: number) {
   return await Promise.race([
     fn(),
