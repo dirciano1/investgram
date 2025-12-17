@@ -1016,16 +1016,16 @@ export default function InvestGramPage() {
       <main style={mainStyle}>
         {/* TÍTULO IGUAL TALKGRAM */}
         <h2
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "8px",
-            justifyContent: "center",
-            fontSize: "1.3rem",
-            marginTop: 22,
-            margin-bottom:22px;
-          }}
-        >
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "8px",
+    justifyContent: "center",
+    fontSize: "1.3rem",
+    marginTop: 22,
+    marginBottom: 22,
+  }}
+>
           <img
             src="/investgram-icon.png"
             alt="Logo InvestGram"
@@ -1344,6 +1344,7 @@ export default function InvestGramPage() {
     </>
   );
 }
+
 
 
 
